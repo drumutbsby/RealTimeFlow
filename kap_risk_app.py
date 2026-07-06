@@ -25,7 +25,6 @@ Gereksinim:   streamlit, pandas, openpyxl  (pip install streamlit pandas openpyx
 """
 
 import email.utils
-import gzip
 import html as html_lib
 import io
 import json
@@ -34,14 +33,15 @@ import random
 import re
 import threading
 import time
-import urllib.error
 import urllib.parse
-import urllib.request
+
+import requests
 import xml.etree.ElementTree as ET
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta, timezone
 
 import altair as alt
+import openpyxl
 import pandas as pd
 import streamlit as st
 
@@ -211,17 +211,28 @@ RATING_POSITIVE = ["yukselt", "teyit", "korundu", "duragan", "stabil",
                    "sozlesme imzalan", "sozlesmesi imzalan",
                    "sozlesmesinin imzalan", "anlasma imzalan"]
 
-# Olumlu yön: bu ifadeler varsa bulgu iyileşme sinyalidir, risk skoruna girmez
-IMPROVEMENT_HINTS = ["yakin izleme pazarindan cikar", "ana pazara gec",
+# Olumlu yön: KATEGORİYE ÖZGÜ iyileşme kalıpları. Genel bir listeyle
+# arama yapmak riskliydi — "konkordato mühleti sona erdi, iflas başladı"
+# gibi ağır bir bildirim, metindeki "sona erdi" yüzünden iyileşme sayılıp
+# skor dışı kalıyordu. Kalıp yalnızca eşleşen kategorinin bağlamında
+# aranır; iflas/temerrüt gibi en ağır kategorilerde kısayol yoktur.
+IMPROVEMENT_HINTS_BY_CAT = {
+    "yakin_izleme": ["yakin izleme pazarindan cikar", "ana pazara gec",
                      "ana pazara alin", "gozalti pazarindan cikar",
-                     "tedbirin kaldiril", "yasagin kaldiril",
-                     "kaldirilmasina karar", "sona erdi", "iptal edildi ve sirasi acil",
-                     "yeniden islem gorme", "davanin lehine sonuclan",
-                     "takipten vazgec", "borcun odendi", "tamamen odendi",
-                     "sorusturmanin sonlandiril", "sorusturmasinin sonlandiril",
-                     "sorusturmanin kapatil", "sorusturmasinin kapatil",
-                     "sorusturmanin sona", "sorusturmasinin sona",
-                     "ceza verilmemesi"]
+                     "yeniden islem gorme"],
+    "piyasa_tedbir": ["tedbirin kaldiril", "yasagin kaldiril",
+                      "kaldirilmasina karar", "tedbir sona erdi"],
+    "regulator": ["sorusturmanin sonlandiril", "sorusturmasinin sonlandiril",
+                  "sorusturmanin kapatil", "sorusturmasinin kapatil",
+                  "sorusturmanin sona", "sorusturmasinin sona",
+                  "ceza verilmemesi", "sorusturma acilmamasina"],
+    "dava": ["davanin lehine sonuclan", "davanin reddi", "lehte sonuclan",
+             "davadan feragat"],
+    "icra": ["takipten vazgec", "takibin iptal", "haczin kaldiril",
+             "borcun odendi", "tamamen odendi"],
+    "temerrut": ["borcun odendi", "tamamen odendi",
+                 "odemenin gerceklestirildigi"],
+}
 
 # Gürültü: risk değeri taşımayan rutin bildirimler.
 # DİKKAT: "kar payı dağıtım" ve "genel kurul işlemlerine" BİLEREK yok —
@@ -287,23 +298,26 @@ def _trigger_cooldown():
                                  time.time() + COOLDOWN_SECONDS)
 
 
+# keep-alive bağlantı havuzu: her istekte TLS el sıkışması tekrarlanmaz
+_session = requests.Session()
+_session.headers.update({
+    "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                   "AppleWebKit/537.36 (KHTML, like Gecko) "
+                   "Chrome/126.0.0.0 Safari/537.36"),
+    "Accept": "*/*", "Accept-Language": "tr",
+})
+
+
 def http_get(url: str, retries: int = 4) -> str:
-    headers = {
-        "User-Agent": ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                       "AppleWebKit/537.36 (KHTML, like Gecko) "
-                       "Chrome/126.0.0.0 Safari/537.36"),
-        "Accept": "*/*", "Accept-Encoding": "gzip", "Accept-Language": "tr",
-    }
+    """KAP istekleri: küresel hız sınırlayıcı + devre kesiciden geçer."""
     last = None
     for attempt in range(retries):
         _throttle()
         try:
-            req = urllib.request.Request(url, headers=headers)
-            resp = urllib.request.urlopen(req, timeout=TIMEOUT)
-            body = resp.read()
-            if resp.headers.get("Content-Encoding") == "gzip":
-                body = gzip.decompress(body)
-            return body.decode("utf-8", "ignore")
+            resp = _session.get(url, timeout=TIMEOUT)
+            resp.raise_for_status()
+            resp.encoding = "utf-8"
+            return resp.text
         except Exception as exc:
             last = exc
             # üstel geri çekilme + rastgele sapma (thread'ler senkron
@@ -311,6 +325,23 @@ def http_get(url: str, retries: int = 4) -> str:
             if attempt < retries - 1:
                 time.sleep(1.2 * (attempt + 1) + random.uniform(0, 0.8))
     raise RuntimeError(f"KAP isteği başarısız: {url} → {last}")
+
+
+def plain_get(url: str, retries: int = 2) -> str:
+    """KAP dışı kaynaklar (Google News): KAP'ın hız sınırlayıcısına ve
+    devre kesicisine takılmadan, kendi hafif yeniden denemesiyle çeker."""
+    last = None
+    for attempt in range(retries):
+        try:
+            resp = _session.get(url, timeout=TIMEOUT)
+            resp.raise_for_status()
+            resp.encoding = "utf-8"
+            return resp.text
+        except Exception as exc:
+            last = exc
+            if attempt < retries - 1:
+                time.sleep(1.0 + random.uniform(0, 0.5))
+    raise RuntimeError(f"İstek başarısız: {url} → {last}")
 
 
 def extract_flight_array(page: str, anchor: str = '\\"data\\":['):
@@ -347,8 +378,10 @@ def extract_flight_array(page: str, anchor: str = '\\"data\\":['):
                 try:
                     return json.loads(txt[a:i + 1])
                 except json.JSONDecodeError:
-                    return []
-    return []
+                    # ayrıştırılamayan veri bloğu "temiz şirket" DEĞİL,
+                    # bozuk yanıttır → None ile yeniden deneme tetiklenir
+                    return None
+    return None                       # dizi hiç kapanmadı: kesik yanıt
 
 
 def parse_date(s: str) -> datetime:
@@ -440,12 +473,43 @@ def fetch_member_directory() -> pd.DataFrame:
     return df.sort_values("hisse").reset_index(drop=True)
 
 
+# Yıl bazlı önbellek: KAPANMIŞ yılların bildirimleri değişmez → süresiz
+# saklanır; güncel yıl ve güncel pencere 1 saatte bir tazelenir. Böylece
+# saat başı otomatik yenileme yalnızca güncel dönemi çeker.
+_year_cache: dict = {}
+_year_lock = threading.Lock()
+_YEAR_TTL_OPEN = 3600
+_YEAR_CACHE_MAX = 12_000
+
+
+def _year_cache_get(oid: str, yr):
+    with _year_lock:
+        hit = _year_cache.get((oid, yr))
+    if not hit:
+        return None
+    ts, items = hit
+    closed = yr is not None and yr < datetime.now().year
+    if closed or time.time() - ts < _YEAR_TTL_OPEN:
+        return items
+    return None
+
+
+def _year_cache_put(oid: str, yr, items):
+    with _year_lock:
+        if len(_year_cache) > _YEAR_CACHE_MAX:   # bellek emniyeti
+            _year_cache.clear()
+        _year_cache[(oid, yr)] = (time.time(), items)
+
+
 def _fetch_year(oid: str, yr):
     """Tek yıl sorgusu → (bildirim listesi, başarı bayrağı).
 
     KAP geçici hız sınırlaması uyguladığında sayfa 200 döner ama veri
     bloğu bulunmaz; bu durum başarısızlık sayılır ve yeniden denenir.
     """
+    cached = _year_cache_get(oid, yr)
+    if cached is not None:
+        return cached, True
     url = (f"{BASE}/tr/bildirim-sorgu-sonuc?srcbar=Y&cmp=Y&cat=2"
            f"&m={oid}&t=X&slf=ALL")
     if yr:
@@ -456,31 +520,24 @@ def _fetch_year(oid: str, yr):
         except RuntimeError:
             arr = None
         if arr is not None:
-            if len(arr) > MAX_SANE_RESULT:   # filtre çalışmamış genel döküm
-                return [], True
+            if len(arr) > MAX_SANE_RESULT:
+                # filtre çalışmamış genel döküm: veriyi kullanma ama bunu
+                # "başarı" da sayma — kullanıcı 'kısmi veri' uyarısı görür
+                return [], False
+            _year_cache_put(oid, yr, arr)
             return arr, True
         _trigger_cooldown()                  # kısıtlama: herkes beklesin
         time.sleep(2.5 * (attempt + 1))
     return [], False
 
 
-_disc_cache: dict = {}
-_disc_lock = __import__("threading").Lock()
-_DISC_TTL = 3600
-
-
 def fetch_company_disclosures(oid: str, years: tuple):
     """Şirket bildirimlerini seçilen yıllar + güncel pencere için çeker.
 
-    → (bildirim listesi, başarısız sorgu sayısı). Yalnızca TAM başarılı
-    sonuçlar önbelleklenir; böylece KAP'ın geçici kısıtlaması sırasında
-    alınan boş yanıtlar 1 saat boyunca yapışıp kalmaz.
+    → (bildirim listesi, başarısız sorgu sayısı). Önbellek yıl bazındadır
+    ve yalnızca başarılı çekimler saklanır; başarısız sorgular bir sonraki
+    taramada otomatik yeniden denenir.
     """
-    key = (oid, years)
-    with _disc_lock:
-        hit = _disc_cache.get(key)
-        if hit and time.time() - hit[0] < _DISC_TTL:
-            return hit[1], 0
     queries = list(years) + [None]
     seen, fails = {}, 0
     with ThreadPoolExecutor(max_workers=min(MAX_WORKERS, len(queries))) as ex:
@@ -497,14 +554,11 @@ def fetch_company_disclosures(oid: str, years: tuple):
     result = sorted(seen.values(),
                     key=lambda b: parse_date(b.get("publishDate", "")),
                     reverse=True)
-    if fails == 0:
-        with _disc_lock:
-            _disc_cache[key] = (time.time(), result)
     return result, fails
 
 
 _detail_cache: dict = {}
-_detail_lock = __import__("threading").Lock()
+_detail_lock = threading.Lock()
 
 
 def fetch_detail_text(disclosure_index: int):
@@ -566,8 +620,6 @@ def classify(basic: dict, member: dict, detail_text: str = "") -> dict | None:
     is_market_wide = any(norm(p) in publisher for p in MARKET_WIDE_PUBLISHERS) \
         and norm(member["unvan"])[:15] not in publisher
 
-    improvement = any(h in combined for h in IMPROVEMENT_HINTS)
-
     # 0) Türetilmiş sinyal: finansal raporun dönem sonundan çok geç
     #    yayımlanması (metinde anahtar kelime yoktur; tarih aritmetiği).
     #    Yıl sonu raporu için ~130 gün, ara dönem için ~75 gün eşik.
@@ -611,9 +663,11 @@ def classify(basic: dict, member: dict, detail_text: str = "") -> dict | None:
                     "denetim/kapanış sorunlarına işaret edebilir",
                     improvement=False, market_wide=is_market_wide)
 
-    # 1) Derecelendirme: yön analizi (varsa detay metni üzerinden)
+    # 1) Derecelendirme: yön analizi — başlık/özet VE detay metni birlikte
+    #    aranır (yalnız detaya bakmak, başlıktaki "notun düşürülmesi"
+    #    ifadesini kaçırıyordu)
     if any(k in text for k in RATING_TRIGGERS):
-        probe = deep if deep else text
+        probe = combined
         neg = [k for k in RATING_NEGATIVE if k in probe]
         pos = [k for k in RATING_POSITIVE if k in probe]
         if neg and (not pos or len(neg) >= len(pos)):
@@ -638,7 +692,11 @@ def classify(basic: dict, member: dict, detail_text: str = "") -> dict | None:
             hit_deep = deep and kw in deep
             if not (hit_surface or hit_deep):
                 continue
-            if improvement:
+            # iyileşme yalnızca EŞLEŞEN kategorinin kendi kalıplarıyla
+            # tespit edilir; iflas/yapılandırma gibi ağır kategorilerde
+            # kısayol yoktur (bkz. IMPROVEMENT_HINTS_BY_CAT açıklaması)
+            cat_hints = IMPROVEMENT_HINTS_BY_CAT.get(cat_id, ())
+            if any(h in combined for h in cat_hints):
                 return _finding(basic, member, cat_id, "İYİLEŞME", 0,
                                 f"olumlu yönlü gelişme ('{kw}' bağlamında "
                                 "kaldırma/çıkarma/lehte sonuç ifadesi)",
@@ -663,6 +721,7 @@ def _finding(basic, member, cat_id, severity, weight, reason,
     return {
         "hisse": member["hisse"],
         "sirket": member["unvan"],
+        "oid": member.get("oid", ""),   # 🆕 anahtarı için kararlı kimlik
         "tarih": dt,
         "tarih_str": basic.get("publishDate", "")[:16],
         "kategori_id": cat_id,
@@ -775,7 +834,8 @@ def fetch_company_news(short: str, max_items: int = 12) -> list:
     q = urllib.parse.quote(f'"{short}" {NEWS_TERMS}')
     url = f"https://news.google.com/rss/search?q={q}&hl=tr&gl=TR&ceid=TR:tr"
     try:
-        xml_text = http_get(url, retries=2)
+        # KAP dışı kaynak: KAP hız sınırlayıcısına takılmadan çek
+        xml_text = plain_get(url, retries=2)
         root = ET.fromstring(xml_text)
     except (RuntimeError, ET.ParseError):
         return []
@@ -926,7 +986,7 @@ def _autofit(ws, widths):
 
 def build_excel(results: list, years: tuple, deep: bool,
                 news: list = None) -> bytes:
-    wb = __import__("openpyxl").Workbook()
+    wb = openpyxl.Workbook()
     now = datetime.now().strftime("%d.%m.%Y %H:%M")
 
     # ---- 1) Yönetici Özeti ----
@@ -1275,12 +1335,26 @@ def _load_state() -> dict:
         return {}
 
 
-def _load_prev_keys() -> set:
-    return set(_load_state())
+def _load_prev() -> tuple:
+    """(önceki anahtar kümesi, önceki tarama zamanı | None)."""
+    keys = set(_load_state())
+    ts = None
+    try:
+        with open(STATE_FILE, encoding="utf-8") as fh:
+            raw_ts = json.load(fh).get("ts")
+        if raw_ts:
+            ts = datetime.fromisoformat(raw_ts)
+    except Exception:
+        pass
+    return keys, ts
 
 
 def _save_keys(keys: set):
-    """Anahtarları ilk görülme zamanıyla sakla; 1 yıldan eskileri buda."""
+    """Anahtarları ilk görülme zamanıyla ATOMİK yaz; 1 yıldan eskileri buda.
+
+    Geçici dosya + os.replace: yazım yarıda kesilirse eski dosya bozulmaz,
+    geçmiş kaybolmaz.
+    """
     try:
         now = datetime.now()
         state = _load_state()
@@ -1288,8 +1362,10 @@ def _save_keys(keys: set):
             state.setdefault(k, now.isoformat())
         cutoff = (now - timedelta(days=365)).isoformat()
         state = {k: t for k, t in state.items() if t >= cutoff}
-        with open(STATE_FILE, "w", encoding="utf-8") as fh:
+        tmp = STATE_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
             json.dump({"keys": state, "ts": now.isoformat()}, fh)
+        os.replace(tmp, STATE_FILE)
     except Exception:
         pass                       # salt-okunur dosya sistemi vb. — kritik değil
 
@@ -1763,17 +1839,25 @@ def main():
                                 "renk": "#666", "hata": str(exc)})
             prog.progress(i / len(members))
 
-        # 🆕 önceki taramaya göre yeni bulguları işaretle (kalıcı dosya)
-        prev_keys = _load_prev_keys()
+        # 🆕 yeni bulgu işaretleme: anahtar kararlı oid ile kurulur ve
+        # yalnızca YAYIN TARİHİ son taramadan yeni bildirimler işaretlenir.
+        # Böylece izlemeye yeni eklenen bir şirketin yıllar önceki
+        # bildirimleri "yeni" diye parlamaz; anahtar biçimi değişse bile
+        # eski kayıtlar toplu 🆕 yağmuruna dönmez.
+        prev_keys, prev_ts = _load_prev()
+        horizon = (prev_ts - timedelta(days=3)) if prev_ts else None
         cur_keys = set()
         for r in results:
             for f in r["findings"]:
-                key = f"{f['hisse']}:{f['bildirim_no']}"
+                key = f"{f.get('oid') or f['hisse']}:{f['bildirim_no']}"
                 cur_keys.add(key)
-                f["yeni"] = bool(prev_keys) and key not in prev_keys
+                f["yeni"] = (bool(prev_keys) and key not in prev_keys
+                             and f["tarih"] != datetime.min
+                             and (horizon is None or f["tarih"] >= horizon))
         _save_keys(prev_keys | cur_keys)
 
-        # 📡 medya taraması (skora girmez; en riskli 40 şirketle sınırlı)
+        # 📡 medya taraması (skora girmez; en riskli 40 şirketle sınırlı,
+        # paralel çekim — Google, KAP hız sınırlayıcısından bağımsız)
         news = []
         if news_on:
             targets = sorted((r for r in results if "hata" not in r),
@@ -1781,23 +1865,26 @@ def main():
             status.write(f"📡 {len(targets)} şirket + "
                          f"{len(media_terms)} KAP-dışı grup için medya "
                          "taraması...")
-            for r in targets:
-                short = company_short_name(r["member"]["unvan"])
-                for n in fetch_company_news(short):
-                    if n["dt"] != datetime.min and not (
-                            date_range[0] <= n["dt"].date() <= date_range[1]):
+            jobs = [(company_short_name(r["member"]["unvan"]),
+                     r["member"]["hisse"], r["member"]["unvan"])
+                    for r in targets]
+            jobs += [(term, term, f"{term} (KAP üyesi değil — yalnız medya)")
+                     for term in media_terms]
+            with ThreadPoolExecutor(max_workers=8) as ex:
+                futs = {ex.submit(fetch_company_news, q): (h, s)
+                        for q, h, s in jobs}
+                for fut in as_completed(futs):
+                    h, s = futs[fut]
+                    try:
+                        items = fut.result()
+                    except Exception:
                         continue
-                    news.append({**n, "hisse": r["member"]["hisse"],
-                                 "sirket": r["member"]["unvan"]})
-            # KAP üyesi olmayan gruplar: yalnızca basın üzerinden izlenir
-            for term in media_terms:
-                for n in fetch_company_news(term):
-                    if n["dt"] != datetime.min and not (
-                            date_range[0] <= n["dt"].date() <= date_range[1]):
-                        continue
-                    news.append({**n, "hisse": term,
-                                 "sirket": f"{term} (KAP üyesi değil — "
-                                           "yalnız medya)"})
+                    for n in items:
+                        if n["dt"] != datetime.min and not (
+                                date_range[0] <= n["dt"].date()
+                                <= date_range[1]):
+                            continue
+                        news.append({**n, "hisse": h, "sirket": s})
             news.sort(key=lambda x: x["dt"], reverse=True)
 
         status.update(label="Tarama tamamlandı ✅", state="complete",
