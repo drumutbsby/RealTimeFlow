@@ -223,7 +223,9 @@ RATING_POSITIVE = ["yukselt", "teyit", "korundu", "duragan", "stabil",
 # arama yapmak riskliydi — "konkordato mühleti sona erdi, iflas başladı"
 # gibi ağır bir bildirim, metindeki "sona erdi" yüzünden iyileşme sayılıp
 # skor dışı kalıyordu. Kalıp yalnızca eşleşen kategorinin bağlamında
-# aranır; iflas/temerrüt gibi en ağır kategorilerde kısayol yoktur.
+# aranır. İflas/yapılandırma gibi kategorilerde kısayol hiç yoktur;
+# temerrütte ise yalnızca borcun FİİLEN ödendiğini bildiren dar kalıplar
+# kabul edilir (ödeme gerçekleşmişse temerrüt gerçekten çözülmüştür).
 IMPROVEMENT_HINTS_BY_CAT = {
     "yakin_izleme": ["yakin izleme pazarindan cikar", "ana pazara gec",
                      "ana pazara alin", "gozalti pazarindan cikar",
