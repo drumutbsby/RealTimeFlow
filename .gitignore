@@ -15,7 +15,12 @@ KAP_Risk_Bulgular_*.csv
 .vscode/
 Thumbs.db
 .DS_Store
-.claude/
+
+# Claude Code — paylaşılan config (CLAUDE.md, .claude/settings.json, .claude/agents/) commit edilir;
+# sadece kişisel/yerel dosyalar hariç tutulur
+.claude/settings.local.json
+.claude/launch.json
+.claude/*.lock
 
 # Bu klasördeki, depoyla ilgisiz yerel çalışmalar (yanlışlıkla yayınlanmasın)
 sunu_template/
