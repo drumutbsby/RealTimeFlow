@@ -4,6 +4,7 @@ import os
 import sys
 
 import kap_rapor_mail as mail
+import kap_risk_app as app
 
 
 def _sahte_sonuc(hisse, not_, skor, seviye, bulgular):
@@ -77,6 +78,24 @@ def test_mail_olustur_iki_ek_ve_alicilar():
     adlar = sorted(p.get_filename() for p in ekler)
     assert adlar == ["KAP_Risk_Bulgular_20260707.csv",
                      "KAP_Risk_Raporu_20260707.xlsx"]
+
+
+def test_email_regex():
+    assert app.EMAIL_RE.match("ad.soyad@ornek.com")
+    assert not app.EMAIL_RE.match("eksik@alan")
+    assert not app.EMAIL_RE.match("bosluk lu@x.com")
+
+
+def test_talep_gecersiz_email_reddedilir():
+    ok, msg = app.talep_mail_gonder("bozuk-adres", [{"findings": []}],
+                                    (2026,), True, b"xls")
+    assert ok is False and "Geçerli" in msg
+
+
+def test_talep_bos_sonuc_reddedilir():
+    # geçerli adres ama tarama yok → SMTP'ye hiç dokunmadan reddetmeli
+    ok, msg = app.talep_mail_gonder("a@b.com", [], (2026,), True, b"xls")
+    assert ok is False and "tarama" in msg.lower()
 
 
 if __name__ == "__main__":
