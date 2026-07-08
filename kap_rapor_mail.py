@@ -10,16 +10,20 @@ gelir; böylece web arayüzü, CLI ve mail çıktısı asla sessizce ayrışmaz.
 Zamanlama GitHub Actions'tadır (bkz. `.github/workflows/gunluk-rapor.yml`);
 bu betik yalnızca "tara → rapor üret → gönder" akışını sağlar.
 
+Varsayılan akış: umut.okan1@gmail.com (Gmail) → umutbasbay@hotmail.com.
+Adresler ve sunucu koda gömülü varsayılanlardır; ortam değişkenleriyle
+değiştirilebilir. Parola koda ASLA girmez.
+
 Ortam değişkenleri (GitHub Secrets / Variables)
 -----------------------------------------------
 Zorunlu:
-  SMTP_HOST   e-posta sunucusu (Outlook: smtp.office365.com)
-  SMTP_USER   gönderen hesap kullanıcı adı (e-posta)
-  SMTP_PASS   gönderen hesap parolası / uygulama parolası
-  MAIL_TO     alıcı(lar), virgülle ayrılmış (kurumsal alıcı)
-İsteğe bağlı:
+  SMTP_PASS   gönderen hesabın parolası — Gmail için "uygulama parolası"
+İsteğe bağlı (varsayılanları geçersiz kılar):
+  SMTP_HOST   e-posta sunucusu (varsayılan: smtp.gmail.com)
   SMTP_PORT   varsayılan 587 (STARTTLS)
-  MAIL_FROM   gönderen adresi; boşsa SMTP_USER kullanılır
+  SMTP_USER   gönderen kullanıcı adı; boşsa MAIL_FROM kullanılır
+  MAIL_FROM   gönderen adresi (varsayılan: umut.okan1@gmail.com)
+  MAIL_TO     alıcı(lar), virgülle ayrılmış (varsayılan: umutbasbay@hotmail.com)
   SMTP_OAUTH_TOKEN  verilirse XOAUTH2 ile kimlik doğrulanır (parola yerine)
   IZLEME_LISTESI    virgülle ayrılmış hisse kodları; boşsa `izleme_listesi.txt`,
                     o da yoksa çekirdeğin DEFAULT_TICKERS listesi kullanılır
@@ -42,6 +46,13 @@ import kap_risk_app as core  # noqa: E402  (kurallar/veri/rapor katmanı çekird
 
 CSV_ALANLARI = ("hisse", "sirket", "tarih_str", "siddet",
                 "kategori", "baslik", "ozet", "gerekce", "link")
+
+# Varsayılan gönderim yapılandırması — ortam değişkenleri (GitHub Secrets)
+# tanımlıysa onlar öncelik kazanır. Parola ASLA burada tutulmaz; yalnızca
+# SMTP_PASS gizli değişkeniyle verilir (Gmail için "uygulama parolası").
+VARSAYILAN_SMTP_HOST = "smtp.gmail.com"
+VARSAYILAN_FROM = "umut.okan1@gmail.com"     # gönderen (Gmail)
+VARSAYILAN_TO = "umutbasbay@hotmail.com"      # alıcı (Hotmail)
 
 
 # ───────────────────────────────────────────────────── yapılandırma ──
@@ -232,14 +243,14 @@ def mail_olustur(konu, duz, html, gonderen, alicilar,
 
 
 def gonder(msg: EmailMessage):
-    host = _env("SMTP_HOST")
+    host = _env("SMTP_HOST", VARSAYILAN_SMTP_HOST)
     port = int(_env("SMTP_PORT", "587"))
-    user = _env("SMTP_USER")
+    user = _env("SMTP_USER") or _env("MAIL_FROM") or VARSAYILAN_FROM
     parola = _env("SMTP_PASS")
     oauth = _env("SMTP_OAUTH_TOKEN")
-    if not host or not user or not (parola or oauth):
-        raise SystemExit("HATA: SMTP_HOST, SMTP_USER ve SMTP_PASS "
-                         "(veya SMTP_OAUTH_TOKEN) ortam değişkenleri zorunlu.")
+    if not (parola or oauth):
+        raise SystemExit("HATA: SMTP_PASS (Gmail uygulama parolası) veya "
+                         "SMTP_OAUTH_TOKEN ortam değişkeni zorunlu.")
 
     baglam = ssl.create_default_context()
     with smtplib.SMTP(host, port, timeout=60) as s:
@@ -262,11 +273,12 @@ def main():
     if hasattr(sys.stdout, "reconfigure"):
         sys.stdout.reconfigure(encoding="utf-8")
 
-    alicilar = [a.strip() for a in _env("MAIL_TO").replace("\n", ",").split(",")
+    alicilar = [a.strip() for a in
+                (_env("MAIL_TO") or VARSAYILAN_TO).replace("\n", ",").split(",")
                 if a.strip()]
     if not alicilar:
         raise SystemExit("HATA: MAIL_TO (alıcı adresi) zorunlu.")
-    gonderen = _env("MAIL_FROM") or _env("SMTP_USER")
+    gonderen = _env("MAIL_FROM") or _env("SMTP_USER") or VARSAYILAN_FROM
 
     kodlar = izleme_listesi()
     baslangic = int(_env("TARAMA_YIL") or (date.today().year - 2))

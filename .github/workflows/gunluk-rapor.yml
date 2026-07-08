@@ -29,6 +29,8 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Taramayı çalıştır ve raporu mail'le
+        # Varsayılan akış koda gömülü: umut.okan1@gmail.com → umutbasbay@hotmail.com.
+        # Tek zorunlu gizli bilgi SMTP_PASS (Gmail uygulama parolası).
         env:
           SMTP_HOST: ${{ secrets.SMTP_HOST }}
           SMTP_PORT: ${{ secrets.SMTP_PORT }}
