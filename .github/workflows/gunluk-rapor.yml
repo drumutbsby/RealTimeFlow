@@ -5,7 +5,11 @@ name: Günlük KAP Risk Raporu
 on:
   schedule:
     - cron: "0 7 * * *"
-  workflow_dispatch: {}       # gerektiğinde elle tetikleme
+  workflow_dispatch: {}       # gerektiğinde elle tetikleme (main'e merge sonrası)
+  # GEÇİCİ: canlı test için bu dala her push'ta çalışsın. Test doğrulanınca
+  # bu 'push' bloğu KALDIRILACAK (PR öncesi).
+  push:
+    branches: [claude/report-readability-3mdpzv]
 
 concurrency:
   group: gunluk-rapor
