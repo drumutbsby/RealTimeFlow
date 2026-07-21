@@ -19,9 +19,9 @@ SQLite depo çalışır durumda. Testler yeşil (44).
 (ajan-doğrulamalı) + Katman A/B güvenilirlik-ağırlıklı birleştirme. Finansal veri
 yoksa Katman A tek başına (düşük güven); varsa fusion + yüksek güven.
 
-**Sırada:** Ohlson O / Beneish M (formül doğrulamalı), canlı kaynak connector'ları
-(ilan.gov.tr, Ticaret Sicil, Resmî Gazete — WAF/503 riski), finansal tablo çekimi,
-Streamlit UI + uyarı sistemi.
+**Sırada:** Beneish M (manipülasyon), canlı kaynak connector'ları (ilan.gov.tr,
+Ticaret Sicil, Resmî Gazete — WAF/503 riski), finansal tablo çekimi, Streamlit UI
++ uyarı sistemi.
 
 ## Belgeler
 
@@ -39,7 +39,7 @@ sinyal_v2/
   kurallar.py          # risk kural kataloğu (V1'den taşındı): 15 kategori + kalıplar
   motor.py             # siniflandir(): kaynak-bağımsız metin → SinyalSonucu
   skor.py              # Katman A skorlama: 0–100 + A–E + açıklanabilir katkı dökümü
-  finansal.py          # Katman B bilimsel modeller: Altman Z''/Z', Piotroski F
+  finansal.py          # Katman B: Altman Z''/Z', Piotroski F, Ohlson O (hepsi doğrulandı)
   boru.py              # orkestrasyon: connector → motor → skor → depo (uçtan uca)
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu

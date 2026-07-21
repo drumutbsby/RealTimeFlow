@@ -17,6 +17,7 @@ tercih edilir. Yüksek enflasyon muhasebesi (TMS 29) skorları bozabilir.
 """
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass
 
 
@@ -31,11 +32,12 @@ class FinansalVeri:
     faiz_vergi_oncesi_kar: float        # EBIT
     satislar: float                     # net sales
     net_kar: float                      # net income (NI)
-    # Piotroski için ek alanlar (opsiyonel)
+    # Piotroski / Ohlson için ek alanlar (opsiyonel)
     faaliyet_nakit_akisi: float | None = None   # CFO
     brut_kar: float | None = None               # gross profit
     uzun_vadeli_borc: float | None = None        # long-term debt
     hisse_adedi: float | None = None             # shares outstanding
+    ffo: float | None = None                     # funds from operations (Ohlson)
 
     @property
     def ozkaynak_defter(self) -> float:
@@ -148,3 +150,63 @@ def piotroski_f(cari: FinansalVeri,
     puan = sum(1 for v in kriterler.values() if v)
     bolge = "güvenli" if puan >= 7 else ("sıkıntı" if puan <= 2 else "gri")
     return ModelSonucu("piotroski_f", float(puan), bolge, kriterler)
+
+
+def ohlson_o(cari: FinansalVeri, onceki: FinansalVeri,
+             gsyh_deflator: float) -> ModelSonucu | None:
+    """Ohlson O-Score (1980) — lojistik iflas olasılığı.
+
+    O = -1.32 - 0.407·SIZE + 6.03·TLTA - 1.43·WCTA + 0.0757·CLCA
+        - 1.72·OENEG - 2.37·NITA - 1.83·FUTL + 0.285·INTWO - 0.521·CHIN
+      SIZE  = ln(toplam aktif / GSYH fiyat düzeyi endeksi)
+      TLTA  = toplam borç / toplam aktif
+      WCTA  = işletme sermayesi / toplam aktif
+      CLCA  = kısa vadeli borç / dönen varlık
+      OENEG = 1 eğer toplam borç > toplam aktif (özkaynak negatif) else 0
+      NITA  = net kâr / toplam aktif
+      FUTL  = FFO / toplam borç  (FFO yoksa CFO kullanılır)
+      INTWO = 1 eğer son iki yıl net zarar else 0
+      CHIN  = (NIt − NIt-1) / (|NIt| + |NIt-1|)
+    Olasılık = 1 / (1 + e^(−O)). Bu katsayı seti Ohlson Model 1'dir (1 yıllık
+    ufuk). Sınıflandırma: Ohlson'ın ampirik optimal kesimi ~0.038 (erken uyarı),
+    0.5 ise naif/güçlü eşik. Bölge: >0.5 sıkıntı, >0.038 gri, altı güvenli.
+
+    ⚠️ SIZE makro girdi ister: gsyh_deflator, toplam aktifin para-yıl birimiyle
+    tutarlı fiyat düzeyi endeksi olmalı (Türkiye için TÜİK GSYH deflatörü);
+    ABD dolar ölçeği doğrudan kullanılmaz.
+    """
+    ta = cari.toplam_aktif
+    ffo = cari.ffo if cari.ffo is not None else cari.faaliyet_nakit_akisi
+    if (ta <= 0 or cari.donen_varlik <= 0 or cari.toplam_borc <= 0
+            or gsyh_deflator <= 0 or ffo is None):
+        return None
+    size = math.log(ta / gsyh_deflator)
+    tlta = cari.toplam_borc / ta
+    wcta = cari.isletme_sermayesi / ta
+    clca = cari.kisa_vadeli_borc / cari.donen_varlik
+    oeneg = 1.0 if cari.toplam_borc > ta else 0.0
+    nita = cari.net_kar / ta
+    futl = ffo / cari.toplam_borc
+    intwo = 1.0 if (cari.net_kar < 0 and onceki.net_kar < 0) else 0.0
+    nit, nip = cari.net_kar, onceki.net_kar
+    payda = abs(nit) + abs(nip)
+    chin = (nit - nip) / payda if payda > 0 else 0.0
+    o = (-1.32 - 0.407 * size + 6.03 * tlta - 1.43 * wcta + 0.0757 * clca
+         - 1.72 * oeneg - 2.37 * nita - 1.83 * futl + 0.285 * intwo
+         - 0.521 * chin)
+    olasilik = 1.0 / (1.0 + math.exp(-o))
+    # Ohlson'ın ampirik optimal kesimi ~0.038 (erken uyarı); 0.5 naif/güçlü
+    # eşiktir. İki kademe: >0.5 sıkıntı, >0.038 gri (erken uyarı), altı güvenli.
+    if olasilik > 0.5:
+        bolge = "sıkıntı"
+    elif olasilik > 0.038:
+        bolge = "gri"
+    else:
+        bolge = "güvenli"
+    return ModelSonucu(
+        "ohlson_o", round(o, 3), bolge,
+        {"olasilik": round(olasilik, 4), "SIZE": round(size, 4),
+         "TLTA": round(tlta, 4), "WCTA": round(wcta, 4),
+         "CLCA": round(clca, 4), "NITA": round(nita, 4),
+         "FUTL": round(futl, 4), "OENEG": oeneg, "INTWO": intwo,
+         "CHIN": round(chin, 4)})

@@ -5,7 +5,7 @@ Sayısal altın değerler bağımsız araştırma ajanı tarafından elle hesapl
 teyit edildi (Altman Z''=3.144 güvenli, EMS=6.394; Z'=1.779 gri).
 """
 from sinyal_v2.finansal import (FinansalVeri, altman_z2, altman_z_ozel,
-                                piotroski_f)
+                                ohlson_o, piotroski_f)
 
 # Ajan tarafından doğrulanan çalışılmış örnek girdileri
 ORNEK = FinansalVeri(
@@ -50,6 +50,45 @@ def test_piotroski_tam_puan():
     assert r is not None
     assert r.skor == 9.0 and r.bolge == "güvenli"
     assert all(r.ayrinti.values())             # 9 kriterin hepsi sağlandı
+
+
+def test_ohlson_altin_deger():
+    # Ajan-doğrulanmış çalışılmış örnek: O=0.669, P=0.6614 (Model 1)
+    cari = FinansalVeri(
+        toplam_aktif=1000, donen_varlik=500, kisa_vadeli_borc=300,
+        toplam_borc=600, gecmis_yil_karlari=100, faiz_vergi_oncesi_kar=80,
+        satislar=900, net_kar=50, ffo=90)
+    onceki = FinansalVeri(
+        toplam_aktif=950, donen_varlik=480, kisa_vadeli_borc=290,
+        toplam_borc=560, gecmis_yil_karlari=90, faiz_vergi_oncesi_kar=70,
+        satislar=850, net_kar=40, ffo=80)
+    r = ohlson_o(cari, onceki, gsyh_deflator=100)
+    assert r is not None
+    assert r.skor == 0.669
+    assert r.ayrinti["olasilik"] == 0.6614
+    assert r.bolge == "sıkıntı"                 # P > 0.5
+
+
+def test_ohlson_saglam_firma_guvenli():
+    saglam = FinansalVeri(
+        toplam_aktif=1000, donen_varlik=800, kisa_vadeli_borc=100,
+        toplam_borc=100, gecmis_yil_karlari=400, faiz_vergi_oncesi_kar=250,
+        satislar=1200, net_kar=200, ffo=250)
+    onceki = FinansalVeri(
+        toplam_aktif=950, donen_varlik=750, kisa_vadeli_borc=100,
+        toplam_borc=100, gecmis_yil_karlari=350, faiz_vergi_oncesi_kar=220,
+        satislar=1100, net_kar=180, ffo=220)
+    r = ohlson_o(saglam, onceki, gsyh_deflator=100)
+    assert r is not None and r.bolge == "güvenli"
+    assert r.ayrinti["olasilik"] < 0.038
+
+
+def test_ohlson_eksik_ffo_none():
+    fv = FinansalVeri(
+        toplam_aktif=1000, donen_varlik=500, kisa_vadeli_borc=300,
+        toplam_borc=600, gecmis_yil_karlari=100, faiz_vergi_oncesi_kar=80,
+        satislar=900, net_kar=50)                # ffo/cfo yok
+    assert ohlson_o(fv, fv, gsyh_deflator=100) is None
 
 
 def test_piotroski_eksik_veri_none():
