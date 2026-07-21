@@ -60,6 +60,27 @@ def test_derin_derecelendirme_yon_tespiti():
     assert len(s1) == 1 and s1[0].siddet is Siddet.KRITIK
 
 
+def test_birebir_tekrar_ayiklanir():
+    # aynı kategori + gün + gerekçe (tek olayın iki bildirimi) → tek sinyal
+    depo = Depo()
+    conn = KapConnector()
+    firma = Firma(canonical_id="c1", unvan="X A.Ş.")
+    ham = [_kap(1, "Özel Durum", "İflas Kararı", "01.05.2026 10:00:00"),
+           _kap(2, "Özel Durum", "İflas Kararı", "01.05.2026 15:00:00")]
+    firma_isle(depo, conn, firma, ham, SIMDI)
+    assert len(depo.firma_sinyalleri("c1")) == 1
+
+
+def test_ayni_kategori_farkli_gun_ayri_sinyal():
+    depo = Depo()
+    conn = KapConnector()
+    firma = Firma(canonical_id="c1", unvan="X A.Ş.")
+    ham = [_kap(1, "Özel Durum", "İflas Kararı", "01.05.2026 10:00:00"),
+           _kap(2, "Özel Durum", "İflas Kararı", "10.05.2026 10:00:00")]
+    firma_isle(depo, conn, firma, ham, SIMDI)
+    assert len(depo.firma_sinyalleri("c1")) == 2   # farklı gün → ayrı
+
+
 def test_uctan_uca_temiz_firma():
     depo = Depo()
     conn = KapConnector()

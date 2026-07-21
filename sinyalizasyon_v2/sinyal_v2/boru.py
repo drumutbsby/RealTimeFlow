@@ -34,6 +34,7 @@ def firma_isle(depo: Depo, connector: Connector, firma: Firma,
     depo.firma_ekle(firma)
     depo.firma_sinyallerini_sil(firma.canonical_id)   # yeniden tarama idempotent
     sinyaller: list[Sinyal] = []
+    gorulen: set = set()                              # birebir sinyal tekrarı ayıklama
     derin_sayac = 0
     for ham in ham_kayitlar:
         kk = connector.ayristir(ham, firma.canonical_id)
@@ -50,10 +51,19 @@ def firma_isle(depo: Depo, connector: Connector, firma: Firma,
                 sonuc = siniflandir(connector.yuzey_metin(ham), derin) or sonuc
         if sonuc is None:
             continue
+        olay_tarih = connector.olay_tarihi(ham)
+        # Birebir tekrar ayıklama: aynı kategori + gün + gerekçe (tek olayın
+        # birden çok bildirimi) tek kez sayılır (V1 "şişmeyi önle" ilkesi).
+        anahtar = (sonuc.kategori_id,
+                   olay_tarih.date() if olay_tarih != datetime.min else None,
+                   sonuc.gerekce)
+        if anahtar in gorulen:
+            continue
+        gorulen.add(anahtar)
         s = Sinyal(
             firma_id=firma.canonical_id, kategori_id=sonuc.kategori_id,
             kategori=sonuc.kategori, siddet=sonuc.siddet, agirlik=sonuc.agirlik,
-            tarih=connector.olay_tarihi(ham), kaynak_kaydi_id=kk.id,
+            tarih=olay_tarih, kaynak_kaydi_id=kk.id,
             kaynak_tipi=connector.kaynak_tipi, gerekce=sonuc.gerekce,
             kaynak_url=kk.kaynak_url, iyilesme=sonuc.iyilesme)
         depo.sinyal_ekle(s)
