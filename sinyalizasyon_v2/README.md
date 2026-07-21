@@ -34,10 +34,13 @@ bir ağ/lisans ortamında bağlanmalı.
 (manipülasyon), Merton DD (naive, halka açık) + Katman A/B fusion.
 
 **Katman B kullanımı:** Finansal veri şu an `--finansal firma.json` ile elle
-verilir (tüm modeller çalışır). **Otomatik çekim:** KAP finansal raporları
-sayıları XBRL-etiketli tablo olarak taşır (canlı doğrulandı) ama güvenilir çıkarım
-dönem/konsolidasyon seçimi + tablo eşleştirme gerektiren ayrı, dikkatli bir
-alt-projedir — yanlış çıkarım skorları bozacağından yarım uygulanmadı.
+verilir (tüm modeller çalışır). **Otomatik çekim — araştırıldı:** KAP finansal
+rapor sayfasında değerler mevcut (binlik-ayraçlı, ör. `12.562.756`, bin TL) ama
+etiket ile değer belge sırasında bitişik DEĞİL — etiketler bir sütunda, dönem
+değerleri ayrı sütunlarda. Güvenilir çıkarım HTML tablo ızgarasını yeniden kurmayı
+(satır-etiket ↔ cari-dönem sütunu + konsolide/solo seçimi) ve bir HTML-parser
+bağımlılığını (lxml/bs4) gerektirir; fixture'lı, doğrulamalı ayrı bir alt-projedir.
+Basit regex kırılgan olup yanlış sayı → yanlış skor riski taşıdığından uygulanmadı.
 
 **Sırada:** KAP XBRL finansal tablo çıkarımı (Katman B'yi otomatik besleme),
 skor gürültü ayarı (yüksek-hacimli firmalar), e-posta uyarı, web UI.
