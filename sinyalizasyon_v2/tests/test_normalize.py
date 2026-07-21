@@ -62,3 +62,11 @@ def test_mersis_yapisal():
     assert not nz.mersis_gecerli("0" * 15)
     assert nz.mersis_normalize("1234-5678-9012-3456") == "1234567890123456"
     assert nz.mersis_normalize("123") is None
+
+
+def test_mersis_icinden_vkn():
+    # Garanti Bankası MERSİS'i → gömülü VKN (ajan doğrulaması)
+    assert nz.mersis_icinden_vkn("0879001756600379") == "8790017566"
+    # gömülü 10 hane checksum'ı tutmuyorsa None (0484084794800000 → 4840847948)
+    assert nz.mersis_icinden_vkn("0484084794800000") is None
+    assert nz.mersis_icinden_vkn("123") is None

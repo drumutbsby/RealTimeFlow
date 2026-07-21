@@ -107,3 +107,18 @@ def mersis_gecerli(mersis: str) -> bool:
 def mersis_normalize(mersis: str) -> str | None:
     d = _sadece_rakam(mersis)
     return d if len(d) == 16 else None
+
+
+def mersis_icinden_vkn(mersis: str) -> str | None:
+    """Kurumsal MERSİS numarasına gömülü 10 haneli VKN'yi çıkar.
+
+    MERSİS 16 hanedir ve kurumsal kayıtlarda VKN'yi 0-tabanlı 1–10. indekste
+    (konum 2–11) barındırır (ör. 0879 0017 5660 0379 → 8790017566 = Garanti
+    VKN'si). Çıkarılan aday yalnızca VKN checksum'ını da geçiyorsa döndürülür;
+    aksi hâlde None (gerçek kişi/atipik MERSİS'te VKN gömülü olmayabilir).
+    """
+    d = mersis_normalize(mersis)
+    if not d:
+        return None
+    aday = d[1:11]
+    return aday if vkn_gecerli(aday) else None

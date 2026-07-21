@@ -10,10 +10,9 @@ açıklanabilir** bir metodolojiyle değerlendiren erken uyarı platformu.
 
 ## Durum
 
-🚧 **Faz 0 — İskelet (sürüyor).** PRD tamam; çekirdek paket iskeleti kuruldu:
-kanonik veri modeli, metin/kimlik normalize yardımcıları (VKN checksum doğrulaması
-gerçek şirket örnekleriyle teyitli), connector sözleşmesi ve ilk KAP connector'ı
-(flight-payload ayrıştırıcısı). Testler yeşil (`python -m pytest`).
+🚧 **Faz 1 — Çekirdek altyapı (sürüyor).** PRD + Faz 0 iskeleti tamam. Faz 1'de
+kimlik eşleştirme motoru (VKN/MERSİS kesin + bulanık unvan + doğrulama kuyruğu)
+ve SQLite depo katmanı eklendi. Tüm testler yeşil (`python -m pytest`).
 
 ## Belgeler
 
@@ -25,11 +24,13 @@ gerçek şirket örnekleriyle teyitli), connector sözleşmesi ve ilk KAP connec
 ```
 sinyal_v2/
   model.py             # kanonik varlıklar: Firma, KaynakKaydi, Sinyal, SkorAnlik
-  normalize.py         # norm(), unvan_anahtari(), VKN/MERSİS doğrulama
+  normalize.py         # norm(), unvan_anahtari(), VKN/MERSİS doğrulama + MERSİS→VKN
+  eslestirme.py        # kimlik eşleştirme: VKN > MERSİS-VKN > bulanık unvan + eşik
+  depo.py              # SQLite depo: firma / kaynak_kaydi / sinyal (kanıt zinciri)
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu
     kap.py             # ilk kaynak: KAP (V1 flight-payload ayrıştırıcısı taşındı)
-tests/                 # pytest — model, normalize, KAP ayrıştırıcı
+tests/                 # pytest — model, normalize, eşleştirme, depo, KAP ayrıştırıcı
 ```
 
 ## Çalıştırma / test
