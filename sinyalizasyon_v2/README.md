@@ -15,13 +15,13 @@ orkestrasyon boru hattı hazır: `connector → motor → skor → depo` zinciri
 KAP kayıtlarıyla test edildi. Katman A skorlama, kimlik eşleştirme, kanıt zincirli
 SQLite depo çalışır durumda. Testler yeşil (44).
 
-**Katman B bilimsel modeller eklendi:** Altman Z'' (gelişen piyasa/EMS), Altman Z'
-(özel imalat), Piotroski F — formülleri ve sayısal örnekleri araştırma ajanıyla
-doğrulandı. Fusion (Katman A+B birleşimi) ve finansal veri çekimi sırada.
+**Katman B + fusion çalışıyor:** Altman Z'' (EMS), Altman Z', Piotroski F
+(ajan-doğrulamalı) + Katman A/B güvenilirlik-ağırlıklı birleştirme. Finansal veri
+yoksa Katman A tek başına (düşük güven); varsa fusion + yüksek güven.
 
-**Sırada (kullanıcı yönlendirmesi faydalı):** canlı kaynak connector'ları
-(ilan.gov.tr, Ticaret Sicil, Resmî Gazete — WAF/503 riski), finansal tablo
-çekimi, Ohlson/Beneish/Merton, Streamlit UI + uyarı sistemi.
+**Sırada:** Ohlson O / Beneish M (formül doğrulamalı), canlı kaynak connector'ları
+(ilan.gov.tr, Ticaret Sicil, Resmî Gazete — WAF/503 riski), finansal tablo çekimi,
+Streamlit UI + uyarı sistemi.
 
 ## Belgeler
 

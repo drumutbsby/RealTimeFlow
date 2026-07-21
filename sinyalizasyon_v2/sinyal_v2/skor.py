@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
+from .finansal import FinansalVeri, altman_z2, piotroski_f
 from .model import SkorAnlik, Sinyal
 
 # V1 skorlama sabitleri (aynen)
@@ -99,3 +100,70 @@ def firma_skoru(sinyaller: list[Sinyal], simdi: datetime | None = None,
         firma_id=bulgular[0].firma_id if bulgular else "",
         tarih=simdi, skor=round(skor, 1), notu=harf, model_surumu=model_surumu,
         katman_a=round(skor, 1), katman_b=None, guven=guven, aciklama=aciklama)
+
+
+# ── Katman B → risk skoru + Katman A+B fusion (PRD §13.2) ───────────────
+# Katman B ağırlıkları V1 regresyonuna dahil DEĞİLDİR (yeni); şeffaf ve
+# kalibre edilebilir tutulur. Altman bölgesi → 0-100 finansal risk tabanı.
+FINANSAL_BOLGE_RISK = {"sıkıntı": 80.0, "gri": 45.0, "güvenli": 10.0}
+FUSION_A_AGIRLIK = 0.55       # olay skoru ağırlığı
+FUSION_B_AGIRLIK = 0.45       # finansal skor ağırlığı
+
+
+def finansal_risk(fv: FinansalVeri,
+                  onceki: FinansalVeri | None = None):
+    """Finansal tablodan 0-100 finansal risk skoru + açıklama (Katman B).
+
+    None → finansal skor hesaplanamadı (yetersiz veri). Altman Z'' bölgesi
+    risk tabanını belirler; Piotroski F (iki dönem varsa) tabanı düzeltir.
+    """
+    z2 = altman_z2(fv)
+    if z2 is None:
+        return None
+    risk = FINANSAL_BOLGE_RISK[z2.bolge]
+    aciklama = [f"Altman Z''={z2.skor} ({z2.bolge}) → finansal risk tabanı "
+                f"{risk:.0f}"]
+    if onceki is not None:
+        f = piotroski_f(fv, onceki)
+        if f is not None:
+            if f.skor <= 2:
+                risk += 10
+                aciklama.append(f"Piotroski F={f.skor:.0f} (zayıf) → +10")
+            elif f.skor >= 7:
+                risk -= 10
+                aciklama.append(f"Piotroski F={f.skor:.0f} (güçlü) → −10")
+    risk = max(0.0, min(100.0, risk))
+    return risk, aciklama
+
+
+def firma_skoru_hibrit(sinyaller: list[Sinyal],
+                       finansal_veri: FinansalVeri | None = None,
+                       onceki_finansal: FinansalVeri | None = None,
+                       simdi: datetime | None = None) -> SkorAnlik:
+    """Katman A (olay) + Katman B (finansal) birleşik skoru (PRD §13.2).
+
+    Finansal veri yoksa Katman A tek başına döner (düşük güven). Varsa iki
+    katman güvenilirlik-ağırlıklı birleştirilir ve güven yükselir.
+    """
+    a_res = firma_skoru(sinyaller, simdi)
+    fr = finansal_risk(finansal_veri, onceki_finansal) if finansal_veri else None
+    if fr is None:
+        return a_res                      # yalnız Katman A
+
+    a = a_res.katman_a
+    b, b_aciklama = fr
+    fused = min(100.0, round(FUSION_A_AGIRLIK * a + FUSION_B_AGIRLIK * b, 1))
+    harf, etiket = not_ver(fused)
+    bulgular = [s for s in sinyaller if not s.iyilesme]
+    if (bulgular or b >= FINANSAL_BOLGE_RISK["gri"]) and harf == "A":
+        harf = "B"
+
+    aciklama = [x for x in a_res.aciklama if "yalnızca olay" not in x]
+    aciklama += b_aciklama
+    aciklama.append(
+        f"fusion: {FUSION_A_AGIRLIK}×Katman A({a:.1f}) + "
+        f"{FUSION_B_AGIRLIK}×Katman B({b:.1f}) = {fused:.1f}")
+    return SkorAnlik(
+        firma_id=a_res.firma_id, tarih=a_res.tarih, skor=fused, notu=harf,
+        model_surumu="hibrit_v1", katman_a=a, katman_b=round(b, 1),
+        guven=0.85, aciklama=aciklama)
