@@ -24,10 +24,11 @@ yoksa Katman A tek başına (düşük güven); varsa fusion + yüksek güven.
   (`byCriteria`). Gerçek BIST firmaları uçtan uca skorlanıyor (SASA, KONTR…).
 - **JCR Eurasia** derecelendirme — canlı jcrer.com.tr'den 10 gerçek kayıt.
 
-**Erişilebilirlik notu (bu ortam):** kap.org.tr, jcrer.com.tr, ticaretsicil.gov.tr
-erişilebilir; **ilan.gov.tr ve resmigazete.gov.tr TLS/bağlantı düzeyinde engelli**
-(proxy doğrulanabilir sertifika sunmuyor / bağlantı reset). Bu kaynaklar farklı
-bir ağ ortamında bağlanmalı.
+**Erişilebilirlik notu (bu ortam):** kap.org.tr ve jcrer.com.tr erişilebilir ve
+canlı bağlı. **ilan.gov.tr / resmigazete.gov.tr** TLS/bağlantı düzeyinde engelli.
+**ticaretsicil.gov.tr** açık ama gazete/unvan sorgusu **üyelik + giriş + CAPTCHA**
+gerektirir (erişim kontrolü atlanmaz — hukuk/etik çerçeve). Bu kaynaklar farklı
+bir ağ/lisans ortamında bağlanmalı.
 
 **Bilimsel model suiti tam:** Altman Z''/Z', Piotroski F, Ohlson O, Beneish M
 (manipülasyon), Merton DD (naive, halka açık) + Katman A/B fusion.

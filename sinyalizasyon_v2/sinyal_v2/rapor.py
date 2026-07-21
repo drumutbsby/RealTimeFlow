@@ -54,6 +54,37 @@ def firma_raporu_metin(firma: Firma, skor: SkorAnlik,
     return "\n".join(satir)
 
 
+MODEL_ETIKET = {
+    "altman_z2": "Altman Z'' (gelişen piyasa)",
+    "altman_z_ozel": "Altman Z' (halka kapalı)",
+    "piotroski_f": "Piotroski F (0-9 sağlamlık)",
+    "ohlson_o": "Ohlson O (iflas olasılığı)",
+    "beneish_m": "Beneish M (manipülasyon)",
+    "merton_dd_naive": "Merton DD (halka açık)",
+}
+
+
+def finansal_rapor(sonuclar: list) -> str:
+    """Katman B model sonuçlarını (bilimsel değerlendirme) metin olarak render et.
+
+    `sonuclar`: ModelSonucu benzeri (model, skor, bolge, ayrinti) nesneler.
+    """
+    if not sonuclar:
+        return "Bilimsel finansal değerlendirme: veri yok (finansal tablo/piyasa)."
+    out = ["BİLİMSEL FİNANSAL DEĞERLENDİRME (Katman B)"]
+    for s in sonuclar:
+        etiket = MODEL_ETIKET.get(s.model, s.model)
+        ek = ""
+        if "olasilik" in s.ayrinti:
+            ek = f"  (temerrüt olasılığı {s.ayrinti['olasilik']:.1%})"
+        elif "temerrut_olasiligi" in s.ayrinti:
+            ek = f"  (temerrüt olasılığı {s.ayrinti['temerrut_olasiligi']:.1%})"
+        out.append(f"  {etiket:32s} skor={s.skor:>8}  bölge: {s.bolge}{ek}")
+    out.append("Not: Katsayılar ABD verisiyle kalibre; BIST için gösterge "
+               "amaçlıdır. Yatırım tavsiyesi değildir.")
+    return "\n".join(out)
+
+
 def portfoy_tablosu(satirlar: list[dict]) -> str:
     """Çok firmalı izleme listesini risk skoruna göre sıralı tablo olarak render et.
 

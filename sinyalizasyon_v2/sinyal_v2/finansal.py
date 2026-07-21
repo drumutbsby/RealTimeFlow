@@ -152,6 +152,44 @@ def piotroski_f(cari: FinansalVeri,
     return ModelSonucu("piotroski_f", float(puan), bolge, kriterler)
 
 
+def tum_modeller(fv: "FinansalVeri | None" = None,
+                 onceki: "FinansalVeri | None" = None,
+                 gsyh_deflator: float | None = None,
+                 beneish: "BeneishGirdi | None" = None,
+                 beneish_onceki: "BeneishGirdi | None" = None,
+                 merton_ozkaynak: float | None = None,
+                 merton_vol: float | None = None,
+                 merton_borc: float | None = None) -> list[ModelSonucu]:
+    """Verili girdilere göre uygulanabilir TÜM Katman B modellerini çalıştır.
+
+    "Firmaları bilimsel değerlendirmeye tabi tutan yapı" cephesi: eksik girdi olan
+    modeller sessizce atlanır (None), varsa hepsi bir liste olarak döner.
+    """
+    sonuclar: list[ModelSonucu] = []
+    if fv is not None:
+        for f in (altman_z2, altman_z_ozel):
+            r = f(fv)
+            if r:
+                sonuclar.append(r)
+        if onceki is not None:
+            p = piotroski_f(fv, onceki)
+            if p:
+                sonuclar.append(p)
+            if gsyh_deflator:
+                o = ohlson_o(fv, onceki, gsyh_deflator)
+                if o:
+                    sonuclar.append(o)
+    if beneish is not None and beneish_onceki is not None:
+        b = beneish_m(beneish, beneish_onceki)
+        if b:
+            sonuclar.append(b)
+    if merton_ozkaynak and merton_vol and merton_borc:
+        m = merton_dd(merton_ozkaynak, merton_vol, merton_borc)
+        if m:
+            sonuclar.append(m)
+    return sonuclar
+
+
 def _normal_cdf(x: float) -> float:
     """Standart normal birikimli dağılım N(x) — math.erf ile (bağımlılıksız)."""
     return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
