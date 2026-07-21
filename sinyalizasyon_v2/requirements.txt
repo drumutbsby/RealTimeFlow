@@ -1,0 +1,13 @@
+# Sinyalizasyon V2 — çalışma bağımlılıkları (V1'den bağımsız, izole)
+# Faz 0 çekirdeği yalnızca standart kütüphane + requests ile çalışır; yeni
+# kaynaklar (HTML/PDF ayrıştırma) ve skorlama katmanı ileriki fazlarda kendi
+# bağımlılıklarını gerekçesiyle ekler.
+requests>=2.31,<3
+
+# İleriki fazlarda eklenecek (henüz gerekmiyor):
+#   pandas, lxml, beautifulsoup4, pdfplumber  (kaynak ayrıştırma)
+#   numpy, scipy, scikit-learn, shap          (skorlama)
+#   streamlit, openpyxl, altair               (UI/rapor)
+#
+# Testler için (requirements'a dahil değil, ayrıca kurulur):
+#   pip install pytest

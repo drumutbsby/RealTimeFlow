@@ -10,12 +10,34 @@ açıklanabilir** bir metodolojiyle değerlendiren erken uyarı platformu.
 
 ## Durum
 
-🚧 **Faz 0 — Planlama.** Şu an yalnızca ürün gereksinim dokümanı (PRD) mevcuttur.
+🚧 **Faz 0 — İskelet (sürüyor).** PRD tamam; çekirdek paket iskeleti kuruldu:
+kanonik veri modeli, metin/kimlik normalize yardımcıları (VKN checksum doğrulaması
+gerçek şirket örnekleriyle teyitli), connector sözleşmesi ve ilk KAP connector'ı
+(flight-payload ayrıştırıcısı). Testler yeşil (`python -m pytest`).
 
 ## Belgeler
 
 - **[PRD.md](PRD.md)** — Ürün Gereksinim Dokümanı (vizyon, kapsam, veri kaynakları,
   veri modeli, skorlama metodolojisi, mimari, yol haritası).
+
+## Paket yapısı (Faz 0)
+
+```
+sinyal_v2/
+  model.py             # kanonik varlıklar: Firma, KaynakKaydi, Sinyal, SkorAnlik
+  normalize.py         # norm(), unvan_anahtari(), VKN/MERSİS doğrulama
+  connectors/
+    base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu
+    kap.py             # ilk kaynak: KAP (V1 flight-payload ayrıştırıcısı taşındı)
+tests/                 # pytest — model, normalize, KAP ayrıştırıcı
+```
+
+## Çalıştırma / test
+
+```bash
+pip install -r requirements.txt   # + pip install pytest
+python -m pytest -q                # sinyalizasyon_v2/ dizininden
+```
 
 ## Yol haritası (özet)
 
