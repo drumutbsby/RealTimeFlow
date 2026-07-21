@@ -32,6 +32,7 @@ def firma_isle(depo: Depo, connector: Connector, firma: Firma,
     `derin_limit` kayıt (kaynağa saygı).
     """
     depo.firma_ekle(firma)
+    depo.firma_sinyallerini_sil(firma.canonical_id)   # yeniden tarama idempotent
     sinyaller: list[Sinyal] = []
     derin_sayac = 0
     for ham in ham_kayitlar:

@@ -72,6 +72,7 @@ python tarama.py                          # demo verisiyle uçtan uca risk dosya
 python tarama.py --kap SASA,KONTR         # gerçek BIST firmaları için CANLI KAP taraması
 python tarama.py --izleme                 # varsayılan izleme listesi → risk sıralaması tablosu
 python tarama.py --kap SASA --derin       # belirsiz derecelendirme bildirimlerinin detayını oku (yön tespiti)
+python tarama.py --izleme --db risk.db    # kalıcı DB: sonraki taramada değişimde UYARI üretir
 python tarama.py --kap SASA --bas 2023-01-01 --bit 2025-12-31
 python tarama.py --jcr                    # + JCR Eurasia'dan CANLI derecelendirme
 python tarama.py --csv cikti.csv          # sinyalleri CSV'ye de yaz

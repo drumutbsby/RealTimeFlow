@@ -23,6 +23,7 @@ from sinyal_v2.depo import Depo
 from sinyal_v2.eslestirme import Eslestirici
 from sinyal_v2.rapor import (firma_raporu_metin, portfoy_satiri,
                              portfoy_tablosu, sinyaller_csv)
+from sinyal_v2.uyari import uyari_metni, uyari_uret
 
 # Varsayılan izleme listesi (V1'den; gerçek, işlem gören BIST kodları)
 IZLEME_LISTESI = ["SASA", "KONTR", "VESTL", "THYAO", "TUPRS", "YKBNK"]
@@ -44,7 +45,7 @@ def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str,
     conn = KapConnector(http_post=net.post_json, http_get=net.get)
     detay_getir = ((lambda ham: conn.detay_metni(ham.get("disclosureIndex")))
                    if derin else None)
-    tum, satirlar = [], []
+    tum, satirlar, uyarilar = [], [], []
     ayrinti = len(kodlar) <= 3           # az firma → tam dosya; çok → tablo
     for kod in kodlar:
         eslesen = [r for r in rehber if kod in r["kodlar"].split(",")]
@@ -63,6 +64,12 @@ def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str,
                           detay_getir=detay_getir)
         sinyaller = depo.firma_sinyalleri(firma.canonical_id)
         eksik = " [KISMİ VERİ]" if sonuc.saglik.kismi_veri else ""
+        # önceki taramaya göre değişim → uyarı (kalıcı DB varsa anlamlı)
+        onceki = depo.son_skor(firma.canonical_id)
+        u = uyari_uret(onceki, skor)
+        if u:
+            uyarilar.append(u)
+        depo.skor_kaydet(skor)
         print(f"  {kod}: {sonuc.saglik.cekilen_kayit} bildirim → "
               f"skor {skor.skor:.1f} ({skor.notu}){eksik}")
         if ayrinti:
@@ -72,6 +79,9 @@ def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str,
         tum += sinyaller
     if len(satirlar) > 1:
         print(portfoy_tablosu(satirlar))
+    if uyarilar:
+        print()
+        print(uyari_metni(uyarilar))
     return tum
 
 
@@ -115,9 +125,11 @@ def main(argv=None) -> int:
     p.add_argument("--derin", action="store_true",
                    help="belirsiz derecelendirme bildirimlerinin detayını "
                         "okuyup yönü belirle (daha yavaş)")
+    p.add_argument("--db", metavar="DOSYA",
+                   help="kalıcı SQLite DB — önceki taramaya göre uyarı üretir")
     args = p.parse_args(argv)
 
-    depo = Depo()
+    depo = Depo(args.db) if args.db else Depo()
     tum_sinyaller = []
 
     if args.kap or args.izleme:

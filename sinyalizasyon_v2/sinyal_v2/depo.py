@@ -182,6 +182,12 @@ class Depo:
             skor=r["skor"], notu=r["notu"], model_surumu=r["model_surumu"],
             katman_a=r["katman_a"], katman_b=r["katman_b"], guven=r["guven"])
 
+    def firma_sinyallerini_sil(self, firma_id: str) -> None:
+        """Bir firmanın sinyallerini sil — yeniden taramada tekrarı önler
+        (kalıcı DB idempotentliği). Skor tarihçesi (skor_anlik) korunur."""
+        self.conn.execute("DELETE FROM sinyal WHERE firma_id=?", (firma_id,))
+        self.conn.commit()
+
     def firma_sinyalleri(self, firma_id: str) -> list[Sinyal]:
         rows = self.conn.execute(
             "SELECT * FROM sinyal WHERE firma_id=? ORDER BY siddet, tarih DESC",
