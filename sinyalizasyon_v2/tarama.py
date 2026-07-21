@@ -21,7 +21,11 @@ from sinyal_v2.connectors.kap import KapConnector
 from sinyal_v2.demo import demo_veri
 from sinyal_v2.depo import Depo
 from sinyal_v2.eslestirme import Eslestirici
-from sinyal_v2.rapor import firma_raporu_metin, sinyaller_csv
+from sinyal_v2.rapor import (firma_raporu_metin, portfoy_satiri,
+                             portfoy_tablosu, sinyaller_csv)
+
+# Varsayılan izleme listesi (V1'den; gerçek, işlem gören BIST kodları)
+IZLEME_LISTESI = ["SASA", "KONTR", "VESTL", "THYAO", "TUPRS", "YKBNK"]
 
 
 def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str) -> list:
@@ -36,11 +40,12 @@ def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str) -> list:
         print(f"  UYARI — KAP üye rehberi çekilemedi: {exc}\n")
         return []
     conn = KapConnector(http_post=net.post_json)
-    tum = []
+    tum, satirlar = [], []
+    ayrinti = len(kodlar) <= 3           # az firma → tam dosya; çok → tablo
     for kod in kodlar:
         eslesen = [r for r in rehber if kod in r["kodlar"].split(",")]
         if not eslesen:
-            print(f"  UYARI — '{kod}' KAP rehberinde bulunamadı\n")
+            print(f"  UYARI — '{kod}' KAP rehberinde bulunamadı")
             continue
         r = eslesen[0]
         firma = Firma(canonical_id=kod.lower(), unvan=r["unvan"],
@@ -48,15 +53,20 @@ def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str) -> list:
         sonuc = conn.cek({"oid": r["oid"], "bas_tarih": bas, "bit_tarih": bit})
         if not sonuc.saglik.basarili:
             print(f"  UYARI — {kod} bildirimleri çekilemedi: "
-                  f"{sonuc.saglik.hata}\n")
+                  f"{sonuc.saglik.hata}")
             continue
         skor = firma_isle(depo, conn, firma, sonuc.ham_kayitlar)
         sinyaller = depo.firma_sinyalleri(firma.canonical_id)
         eksik = " [KISMİ VERİ]" if sonuc.saglik.kismi_veri else ""
-        print(f"  {r['unvan']}: {sonuc.saglik.cekilen_kayit} bildirim{eksik}")
-        print(firma_raporu_metin(firma, skor, sinyaller))
-        print()
+        print(f"  {kod}: {sonuc.saglik.cekilen_kayit} bildirim → "
+              f"skor {skor.skor:.1f} ({skor.notu}){eksik}")
+        if ayrinti:
+            print(firma_raporu_metin(firma, skor, sinyaller))
+            print()
+        satirlar.append(portfoy_satiri(kod, r["unvan"], skor, sinyaller))
         tum += sinyaller
+    if len(satirlar) > 1:
+        print(portfoy_tablosu(satirlar))
     return tum
 
 
@@ -92,6 +102,9 @@ def main(argv=None) -> int:
     p.add_argument("--kap", metavar="KODLAR",
                    help="BIST kodları (virgüllü) için KAP'tan CANLI tara, "
                         "ör. --kap SASA,KONTR")
+    p.add_argument("--izleme", action="store_true",
+                   help="varsayılan izleme listesini KAP'tan canlı tara "
+                        f"({','.join(IZLEME_LISTESI)})")
     p.add_argument("--bas", default="2024-01-01", help="KAP başlangıç (YYYY-MM-DD)")
     p.add_argument("--bit", default="2025-12-31", help="KAP bitiş (YYYY-MM-DD)")
     args = p.parse_args(argv)
@@ -99,8 +112,9 @@ def main(argv=None) -> int:
     depo = Depo()
     tum_sinyaller = []
 
-    if args.kap:
-        kodlar = [k.strip().upper() for k in args.kap.split(",") if k.strip()]
+    if args.kap or args.izleme:
+        kodlar = (IZLEME_LISTESI if args.izleme else
+                  [k.strip().upper() for k in args.kap.split(",") if k.strip()])
         tum_sinyaller += _kap_canli(depo, kodlar, args.bas, args.bit)
     else:
         conn = KapConnector()

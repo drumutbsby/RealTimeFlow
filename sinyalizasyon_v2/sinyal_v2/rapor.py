@@ -54,6 +54,40 @@ def firma_raporu_metin(firma: Firma, skor: SkorAnlik,
     return "\n".join(satir)
 
 
+def portfoy_tablosu(satirlar: list[dict]) -> str:
+    """Çok firmalı izleme listesini risk skoruna göre sıralı tablo olarak render et.
+
+    Her satır: {hisse, unvan, skor, notu, kritik, yuksek, orta, dusuk, toplam}.
+    """
+    satirlar = sorted(satirlar, key=lambda r: -r["skor"])
+    bas = (f"{'Hisse':<9}{'Not':<4}{'Skor':>6}  {'K':>2}{'Y':>3}{'O':>3}"
+           f"{'D':>3}  {'Top':>4}  Şirket")
+    cizgi = "─" * 78
+    out = ["", "İZLEME LİSTESİ — RİSK SIRALAMASI", cizgi, bas, cizgi]
+    for r in satirlar:
+        out.append(
+            f"{r['hisse']:<9}{r['notu']:<4}{r['skor']:>6.1f}  "
+            f"{r['kritik']:>2}{r['yuksek']:>3}{r['orta']:>3}{r['dusuk']:>3}  "
+            f"{r['toplam']:>4}  {r['unvan'][:44]}")
+    out.append(cizgi)
+    out.append("K=Kritik Y=Yüksek O=Orta D=Düşük — Yatırım tavsiyesi değildir.")
+    return "\n".join(out)
+
+
+def portfoy_satiri(hisse: str, unvan: str, skor: SkorAnlik,
+                   sinyaller: list[Sinyal]) -> dict:
+    """Bir firmanın portföy tablosu satırını (şiddet sayımlı) üret."""
+    say = {s: 0 for s in Siddet}
+    for sg in sinyaller:
+        if not sg.iyilesme:
+            say[sg.siddet] += 1
+    return {"hisse": hisse, "unvan": unvan, "skor": skor.skor,
+            "notu": skor.notu, "kritik": say[Siddet.KRITIK],
+            "yuksek": say[Siddet.YUKSEK], "orta": say[Siddet.ORTA],
+            "dusuk": say[Siddet.DUSUK],
+            "toplam": sum(1 for s in sinyaller if not s.iyilesme)}
+
+
 def sinyaller_csv(sinyaller: list[Sinyal]) -> str:
     """Sinyalleri CSV metnine dök (Excel-uyumlu)."""
     buf = io.StringIO()

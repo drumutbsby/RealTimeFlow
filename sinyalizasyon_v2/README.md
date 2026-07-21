@@ -66,6 +66,7 @@ pip install -r requirements.txt   # + pip install pytest
 python -m pytest -q                # sinyalizasyon_v2/ dizininden — 67 test
 python tarama.py                          # demo verisiyle uçtan uca risk dosyaları
 python tarama.py --kap SASA,KONTR         # gerçek BIST firmaları için CANLI KAP taraması
+python tarama.py --izleme                 # varsayılan izleme listesi → risk sıralaması tablosu
 python tarama.py --kap SASA --bas 2023-01-01 --bit 2025-12-31
 python tarama.py --jcr                    # + JCR Eurasia'dan CANLI derecelendirme
 python tarama.py --csv cikti.csv          # sinyalleri CSV'ye de yaz
