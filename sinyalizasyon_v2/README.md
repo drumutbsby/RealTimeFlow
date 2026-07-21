@@ -10,10 +10,10 @@ açıklanabilir** bir metodolojiyle değerlendiren erken uyarı platformu.
 
 ## Durum
 
-🚧 **Faz 2 — Sinyal motoru (sürüyor).** PRD + Faz 0/1 tamam. Faz 2'de V1'in
-kanıtlanmış kural seti (15 kategori) kaynak-bağımsız bir sınıflandırma motoruna
-taşındı; V1'in 24 vakalık altın regresyon setinin 23'ü uyarlandı (rapor gecikmesi
-connector-seviyesi olduğu için ayrı ele alınacak). Tüm testler yeşil (34).
+🚧 **Faz 3 — Skorlama (sürüyor).** PRD + Faz 0/1/2 tamam. Faz 3'te V1'in
+skorlama mantığı (ağırlık × güncellik × kategori-içi sönümleme → 0–100 + A–E
+notu) Katman A olarak taşındı; açıklanabilir katkı dökümü + güven rozeti
+üretilir. Finansal model (Katman B) veri bağlandığında eklenecek. Testler yeşil (42).
 
 ## Belgeler
 
@@ -30,6 +30,7 @@ sinyal_v2/
   depo.py              # SQLite depo: firma / kaynak_kaydi / sinyal (kanıt zinciri)
   kurallar.py          # risk kural kataloğu (V1'den taşındı): 15 kategori + kalıplar
   motor.py             # siniflandir(): kaynak-bağımsız metin → SinyalSonucu
+  skor.py              # Katman A skorlama: 0–100 + A–E + açıklanabilir katkı dökümü
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu
     kap.py             # ilk kaynak: KAP (V1 flight-payload ayrıştırıcısı taşındı)
