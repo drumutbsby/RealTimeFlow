@@ -54,6 +54,7 @@ sinyal_v2/
   skor.py              # Katman A skorlama: 0–100 + A–E + açıklanabilir katkı dökümü
   finansal.py          # Katman B: Altman Z''/Z', Piotroski F, Ohlson O, Beneish M, Merton DD
   boru.py              # orkestrasyon: firma_isle + kaynak_tarama (kaynak-güdümlü keşif)
+  uyari.py             # erken uyarı: not kötüleşmesi / skor artışı / yeni yüksek risk
   net.py               # kaynağa saygılı HTTP çekim (hız sınırlamalı)
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu

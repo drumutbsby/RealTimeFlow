@@ -13,7 +13,7 @@ import json
 import sqlite3
 from datetime import datetime
 
-from .model import (Firma, KaynakKaydi, KaynakTipi, Siddet, Sinyal)
+from .model import (Firma, KaynakKaydi, KaynakTipi, Siddet, Sinyal, SkorAnlik)
 
 _SEMA = """
 CREATE TABLE IF NOT EXISTS firma (
@@ -60,6 +60,19 @@ CREATE TABLE IF NOT EXISTS sinyal (
     FOREIGN KEY (firma_id) REFERENCES firma(canonical_id)
 );
 CREATE INDEX IF NOT EXISTS ix_sinyal_firma ON sinyal(firma_id);
+
+CREATE TABLE IF NOT EXISTS skor_anlik (
+    id            INTEGER PRIMARY KEY AUTOINCREMENT,
+    firma_id      TEXT NOT NULL,
+    tarih         TEXT,
+    skor          REAL,
+    notu          TEXT,
+    katman_a      REAL,
+    katman_b      REAL,
+    guven         REAL,
+    model_surumu  TEXT
+);
+CREATE INDEX IF NOT EXISTS ix_skor_firma ON skor_anlik(firma_id);
 """
 
 
@@ -145,6 +158,29 @@ class Depo:
              s.gerekce, s.alinti, s.kaynak_url, int(s.iyilesme), s.guncellik))
         self.conn.commit()
         return cur.lastrowid
+
+    # ── SkorAnlik (uyarı/değişim tespiti için tarihçe) ─────────────────
+    def skor_kaydet(self, s: SkorAnlik) -> int:
+        cur = self.conn.execute(
+            """INSERT INTO skor_anlik
+               (firma_id, tarih, skor, notu, katman_a, katman_b, guven,
+                model_surumu) VALUES (?,?,?,?,?,?,?,?)""",
+            (s.firma_id, s.tarih.isoformat(), s.skor, s.notu, s.katman_a,
+             s.katman_b, s.guven, s.model_surumu))
+        self.conn.commit()
+        return cur.lastrowid
+
+    def son_skor(self, firma_id: str) -> SkorAnlik | None:
+        """Bir firmanın en son kaydedilen skor anlık görüntüsü (yoksa None)."""
+        r = self.conn.execute(
+            "SELECT * FROM skor_anlik WHERE firma_id=? ORDER BY id DESC LIMIT 1",
+            (firma_id,)).fetchone()
+        if not r:
+            return None
+        return SkorAnlik(
+            firma_id=r["firma_id"], tarih=datetime.fromisoformat(r["tarih"]),
+            skor=r["skor"], notu=r["notu"], model_surumu=r["model_surumu"],
+            katman_a=r["katman_a"], katman_b=r["katman_b"], guven=r["guven"])
 
     def firma_sinyalleri(self, firma_id: str) -> list[Sinyal]:
         rows = self.conn.execute(
