@@ -19,9 +19,12 @@ SQLite depo çalışır durumda. Testler yeşil (44).
 (ajan-doğrulamalı) + Katman A/B güvenilirlik-ağırlıklı birleştirme. Finansal veri
 yoksa Katman A tek başına (düşük güven); varsa fusion + yüksek güven.
 
-**Sırada:** Beneish M (manipülasyon), canlı kaynak connector'ları (ilan.gov.tr,
-Ticaret Sicil, Resmî Gazete — WAF/503 riski), finansal tablo çekimi, Streamlit UI
-+ uyarı sistemi.
+**İlk gerçek veri kaynağı:** JCR Eurasia derecelendirme connector'ı — parser
+canlı jcrer.com.tr HTML'ine karşı doğrulandı (10 gerçek firma kaydı), Negatif
+görünüm → derecelendirme sinyali.
+
+**Sırada:** JCR canlı çekim + kimlik eşleştirme entegrasyonu, ilan.gov.tr /
+Resmî Gazete connector'ları (WAF/503 riski), Beneish M, Streamlit UI + uyarı.
 
 ## Belgeler
 
@@ -43,7 +46,8 @@ sinyal_v2/
   boru.py              # orkestrasyon: connector → motor → skor → depo (uçtan uca)
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu
-    kap.py             # ilk kaynak: KAP (V1 flight-payload ayrıştırıcısı taşındı)
+    kap.py             # KAP (V1 flight-payload ayrıştırıcısı taşındı)
+    jcr.py             # JCR Eurasia derecelendirme (parser gerçek HTML'e karşı doğrulandı)
 tests/                 # pytest — model, normalize, eşleştirme, depo, KAP ayrıştırıcı
 ```
 
