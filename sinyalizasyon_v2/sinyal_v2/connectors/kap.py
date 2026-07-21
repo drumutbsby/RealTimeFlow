@@ -15,6 +15,7 @@ döner.
 """
 from __future__ import annotations
 
+import html as html_lib
 import json
 import re
 from datetime import datetime
@@ -25,6 +26,29 @@ from ..normalize import norm
 from .base import CekimSonucu, Connector, SaglikDurumu
 
 BASE = "https://www.kap.org.tr"
+
+
+def detay_ayristir(page: str) -> str:
+    """KAP bildirim DETAY sayfasından tam açıklama metnini çıkar (V1 mantığı).
+
+    Derecelendirme yön tespiti gibi başlık/özette olmayan bilgi burada bulunur.
+    Boş string → sayfa geldi ama metin bölgesi yok.
+    """
+    txt = re.sub(r"\\u([0-9a-fA-F]{4})",
+                 lambda m: chr(int(m.group(1), 16)), page)
+    s = txt.find("taxonomy")
+    if s < 0:
+        s = txt.find("summaryInfo")
+    if s < 0:
+        return ""
+    end = txt.find("footerNote", s)
+    if end < 0:
+        end = min(len(txt), s + 200_000)
+    seg = re.sub(r"<[^>]+>", " ", txt[max(0, s - 300):end])
+    seg = html_lib.unescape(seg)
+    seg = re.sub(r"oda_[A-Za-z]+", " ", seg)         # taksonomi alan adları
+    seg = re.sub(r'[\\"{}\[\]]', " ", seg)
+    return re.sub(r"\s+", " ", seg)[:25_000]
 
 
 def uye_rehberi_ayristir(page: str) -> list[dict]:
@@ -135,10 +159,22 @@ class KapConnector(Connector):
     """
     kaynak_tipi = KaynakTipi.KAP
 
-    def __init__(self, http_post: Callable[[str, dict], str] | None = None):
+    def __init__(self, http_post: Callable[[str, dict], str] | None = None,
+                 http_get: Callable[[str], str] | None = None):
         self._http_post = http_post
+        self._http_get = http_get                    # derin (detay) okuma için
         self._son_saglik = SaglikDurumu(kaynak_tipi=self.kaynak_tipi,
                                         basarili=True)
+
+    def detay_metni(self, index) -> str:
+        """Bir bildirimin detay sayfasından tam metni çek (derin mod). Boş →
+        çekilemedi/metin yok (sessizce risk üretmez)."""
+        if self._http_get is None or index is None:
+            return ""
+        try:
+            return detay_ayristir(self._http_get(f"{BASE}/tr/Bildirim/{index}"))
+        except Exception:                            # noqa: BLE001
+            return ""
 
     @staticmethod
     def _yillik_pencereler(bas: str, bit: str) -> list[tuple[str, str]]:

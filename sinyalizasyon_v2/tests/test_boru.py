@@ -42,6 +42,24 @@ def test_uctan_uca_iflas_ve_rutin():
     assert skor.firma_id == "c1"
 
 
+def test_derin_derecelendirme_yon_tespiti():
+    conn = KapConnector()
+    firma = Firma(canonical_id="c1", unvan="X A.Ş.")
+    ham = [{"disclosureIndex": 1, "subject": "Kredi Derecelendirmesi",
+            "summary": "Kredi Notu"}]
+    # Derin mod YOK → yön belirsiz (DÜŞÜK)
+    depo0 = Depo()
+    firma_isle(depo0, conn, firma, ham, SIMDI)
+    s0 = depo0.firma_sinyalleri("c1")
+    assert len(s0) == 1 and s0[0].siddet is Siddet.DUSUK
+    # Derin mod: detay 'düşürme' metni → KRİTİK
+    depo1 = Depo()
+    firma_isle(depo1, conn, firma, ham, SIMDI,
+               detay_getir=lambda h: "kredi notunu düşürmüştür, görünüm negatif")
+    s1 = depo1.firma_sinyalleri("c1")
+    assert len(s1) == 1 and s1[0].siddet is Siddet.KRITIK
+
+
 def test_uctan_uca_temiz_firma():
     depo = Depo()
     conn = KapConnector()

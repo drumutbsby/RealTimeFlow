@@ -28,9 +28,11 @@ from sinyal_v2.rapor import (firma_raporu_metin, portfoy_satiri,
 IZLEME_LISTESI = ["SASA", "KONTR", "VESTL", "THYAO", "TUPRS", "YKBNK"]
 
 
-def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str) -> list:
+def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str,
+               derin: bool = False) -> list:
     """Belirtilen BIST kod(lar)ı için KAP'tan CANLI bildirim tara + skorla."""
-    print(f"═══ KAP canlı tarama ({bas} – {bit}) ═══")
+    mod = " [derin]" if derin else ""
+    print(f"═══ KAP canlı tarama ({bas} – {bit}){mod} ═══")
     from sinyal_v2.connectors.kap import uye_rehberi_ayristir
     from sinyal_v2.model import Firma
     try:
@@ -39,7 +41,9 @@ def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str) -> list:
     except Exception as exc:                           # noqa: BLE001
         print(f"  UYARI — KAP üye rehberi çekilemedi: {exc}\n")
         return []
-    conn = KapConnector(http_post=net.post_json)
+    conn = KapConnector(http_post=net.post_json, http_get=net.get)
+    detay_getir = ((lambda ham: conn.detay_metni(ham.get("disclosureIndex")))
+                   if derin else None)
     tum, satirlar = [], []
     ayrinti = len(kodlar) <= 3           # az firma → tam dosya; çok → tablo
     for kod in kodlar:
@@ -55,7 +59,8 @@ def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str) -> list:
             print(f"  UYARI — {kod} bildirimleri çekilemedi: "
                   f"{sonuc.saglik.hata}")
             continue
-        skor = firma_isle(depo, conn, firma, sonuc.ham_kayitlar)
+        skor = firma_isle(depo, conn, firma, sonuc.ham_kayitlar,
+                          detay_getir=detay_getir)
         sinyaller = depo.firma_sinyalleri(firma.canonical_id)
         eksik = " [KISMİ VERİ]" if sonuc.saglik.kismi_veri else ""
         print(f"  {kod}: {sonuc.saglik.cekilen_kayit} bildirim → "
@@ -107,6 +112,9 @@ def main(argv=None) -> int:
                         f"({','.join(IZLEME_LISTESI)})")
     p.add_argument("--bas", default="2024-01-01", help="KAP başlangıç (YYYY-MM-DD)")
     p.add_argument("--bit", default="2025-12-31", help="KAP bitiş (YYYY-MM-DD)")
+    p.add_argument("--derin", action="store_true",
+                   help="belirsiz derecelendirme bildirimlerinin detayını "
+                        "okuyup yönü belirle (daha yavaş)")
     args = p.parse_args(argv)
 
     depo = Depo()
@@ -115,7 +123,7 @@ def main(argv=None) -> int:
     if args.kap or args.izleme:
         kodlar = (IZLEME_LISTESI if args.izleme else
                   [k.strip().upper() for k in args.kap.split(",") if k.strip()])
-        tum_sinyaller += _kap_canli(depo, kodlar, args.bas, args.bit)
+        tum_sinyaller += _kap_canli(depo, kodlar, args.bas, args.bit, args.derin)
     else:
         conn = KapConnector()
         for firma, ham in demo_veri():

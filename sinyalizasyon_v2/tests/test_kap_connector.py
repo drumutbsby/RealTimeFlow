@@ -7,7 +7,7 @@ doğrulandı (gerçek SASA bildirimleri döndü).
 import json
 
 from sinyal_v2.connectors.kap import (KapConnector, bycriteria_govde,
-                                      flight_dizisi_cikar)
+                                      detay_ayristir, flight_dizisi_cikar)
 from sinyal_v2.model import KaynakTipi
 
 # byCriteria'nın döndürdüğü JSON dizisini taklit eden sentetik yanıt
@@ -73,3 +73,17 @@ def test_flight_ayristir_temel():
 
 def test_flight_anchor_yok_none():
     assert flight_dizisi_cikar("veri blogu yok") is None
+
+
+def test_detay_ayristir_metin_ve_unicode():
+    page = ("onbilgi taxonomy <div class=\"x\">Uzun Vadeli Kredi Notu B-den "
+            "CCC seviyesine d\\u00fc\\u015f\\u00fcr\\u00fclm\\u00fc\\u015ftür"
+            "</div> footerNote sonrasi metin")
+    metin = detay_ayristir(page)
+    assert "Kredi Notu" in metin
+    assert "düşür" in metin              # \\uXXXX unescape çalıştı
+    assert "sonrasi metin" not in metin  # footerNote sonrası hariç
+
+
+def test_detay_ayristir_bolge_yok_bos():
+    assert detay_ayristir("hiçbir taksonomi yok") == ""

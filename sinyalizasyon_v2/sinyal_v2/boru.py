@@ -20,19 +20,33 @@ from .skor import firma_skoru
 
 
 def firma_isle(depo: Depo, connector: Connector, firma: Firma,
-               ham_kayitlar: list[dict], simdi: datetime | None = None
-               ) -> SkorAnlik:
+               ham_kayitlar: list[dict], simdi: datetime | None = None,
+               detay_getir=None, derin_limit: int = 40) -> SkorAnlik:
     """Bir firmayı verili ham kayıtlarla işle → SkorAnlik (yan etki: depoya yazar).
 
     Her ham kayıt için: kanıt kaydı saklanır, yüzey metni sınıflandırılır ve
     risk sinyali varsa saklanır. Sonra tüm sinyallerden Katman A skoru üretilir.
+
+    `detay_getir(ham) -> str` verilirse, YÖNÜ belirsiz derecelendirme bildirimleri
+    için detay metni çekilip yeniden sınıflandırılır (derin mod); en fazla
+    `derin_limit` kayıt (kaynağa saygı).
     """
     depo.firma_ekle(firma)
     sinyaller: list[Sinyal] = []
+    derin_sayac = 0
     for ham in ham_kayitlar:
         kk = connector.ayristir(ham, firma.canonical_id)
         depo.kaynak_kaydi_ekle(kk)
         sonuc = siniflandir(connector.yuzey_metin(ham))
+        # Derin mod: yönü özetten belirlenemeyen derecelendirme (ağırlık ≤3) →
+        # detay metnini oku, yeniden sınıflandır (düşürme/teyit netleşsin)
+        if (detay_getir is not None and derin_sayac < derin_limit
+                and sonuc is not None and sonuc.kategori_id == "derecelendirme"
+                and sonuc.agirlik <= 3):
+            derin = detay_getir(ham)
+            if derin:
+                derin_sayac += 1
+                sonuc = siniflandir(connector.yuzey_metin(ham), derin) or sonuc
         if sonuc is None:
             continue
         s = Sinyal(
