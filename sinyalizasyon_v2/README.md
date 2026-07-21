@@ -19,12 +19,18 @@ SQLite depo çalışır durumda. Testler yeşil (44).
 (ajan-doğrulamalı) + Katman A/B güvenilirlik-ağırlıklı birleştirme. Finansal veri
 yoksa Katman A tek başına (düşük güven); varsa fusion + yüksek güven.
 
-**İlk gerçek veri kaynağı:** JCR Eurasia derecelendirme connector'ı — parser
-canlı jcrer.com.tr HTML'ine karşı doğrulandı (10 gerçek firma kaydı), Negatif
-görünüm → derecelendirme sinyali.
+**Gerçek veri kaynakları (canlı doğrulandı):**
+- **JCR Eurasia** derecelendirme — canlı jcrer.com.tr'den 10 gerçek kayıt.
+- **KAP üye rehberi** — canlı kap.org.tr'den 1211 gerçek ihraççı (SASA, THYAO…).
 
-**Sırada:** JCR canlı çekim + kimlik eşleştirme entegrasyonu, ilan.gov.tr /
-Resmî Gazete connector'ları (WAF/503 riski), Beneish M, Streamlit UI + uyarı.
+**Erişilebilirlik notu (bu ortam):** kap.org.tr, jcrer.com.tr, ticaretsicil.gov.tr
+erişilebilir; **ilan.gov.tr ve resmigazete.gov.tr TLS/bağlantı düzeyinde engelli**
+(proxy doğrulanabilir sertifika sunmuyor / bağlantı reset). Bu kaynaklar farklı
+bir ağ ortamında bağlanmalı.
+
+**Sırada:** KAP disclosure JSON REST endpoint (flight payload kalktı), Ticaret
+Sicil connector, kimlik eşleştirmeyi VKN ile zenginleştirme, Beneish M,
+Streamlit UI + uyarı sistemi.
 
 ## Belgeler
 

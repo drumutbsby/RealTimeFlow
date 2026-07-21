@@ -16,13 +16,58 @@ döner.
 from __future__ import annotations
 
 import json
+import re
 from datetime import datetime
 from typing import Callable
 
 from ..model import KaynakKaydi, KaynakTipi
+from ..normalize import norm
 from .base import CekimSonucu, Connector, SaglikDurumu
 
 BASE = "https://www.kap.org.tr"
+
+
+def uye_rehberi_ayristir(page: str) -> list[dict]:
+    """KAP üye rehberi sayfasına gömülü ihraççı listesini çıkar (V1 mantığı).
+
+    → [{hisse, kodlar, unvan, oid, islem}]. Hisse kodu olmayan ihraççılar da
+    dahildir (temerrüt takibi için kritik kesim). Canlı jcrer değil, KAP
+    bildirim-sorgu sayfasıdır; yapı değişirse boş liste döner.
+    """
+    txt = page.replace('\\"', '"')
+    satirlar, gorulen_oid, gorulen_etiket = [], set(), set()
+    for chunk in txt.split('{"kapMemberOid"')[1:]:
+        chunk = chunk[:2500]
+        oid = re.search(r'"mkkMemberOid":"([0-9a-fA-F]+)"', chunk)
+        ttl = re.search(r'"kapMemberTitle":"(.*?)"', chunk)
+        if not (oid and ttl) or oid.group(1) in gorulen_oid:
+            continue
+        gorulen_oid.add(oid.group(1))
+        title = ttl.group(1)
+        try:
+            title = json.loads('"' + title.replace('"', '\\"') + '"')
+        except json.JSONDecodeError:
+            pass
+        stk = re.search(r'"stockCode":"(.*?)"', chunk)
+        pis = re.search(r'"payIslemDurumu":"(.*?)"', chunk)
+        kodlar = [c.strip().upper() for c in
+                  (stk.group(1) if stk else "").replace(";", ",").split(",")
+                  if c.strip() and c.strip() != "-"]
+        if kodlar:
+            kod = max(kodlar, key=len)            # birincil kod: en uzunu
+            kodlar_str = ",".join(kodlar)
+        else:
+            kod = "*" + norm(title).split()[0].upper()[:9]  # kodsuz ihraççı
+            kodlar_str = kod
+        etiket, n = kod, 2
+        while etiket in gorulen_etiket:
+            etiket = f"{kod}{n}"
+            n += 1
+        gorulen_etiket.add(etiket)
+        satirlar.append({"hisse": etiket, "kodlar": kodlar_str, "unvan": title,
+                         "oid": oid.group(1),
+                         "islem": pis.group(1) if pis else ""})
+    return satirlar
 
 
 def flight_dizisi_cikar(page: str, anchor: str = '\\"data\\":['):
