@@ -24,6 +24,42 @@ from sinyal_v2.eslestirme import Eslestirici
 from sinyal_v2.rapor import firma_raporu_metin, sinyaller_csv
 
 
+def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str) -> list:
+    """Belirtilen BIST kod(lar)ı için KAP'tan CANLI bildirim tara + skorla."""
+    print(f"═══ KAP canlı tarama ({bas} – {bit}) ═══")
+    from sinyal_v2.connectors.kap import uye_rehberi_ayristir
+    from sinyal_v2.model import Firma
+    try:
+        rehber = uye_rehberi_ayristir(net.get(
+            "https://www.kap.org.tr/tr/bildirim-sorgu"))
+    except Exception as exc:                           # noqa: BLE001
+        print(f"  UYARI — KAP üye rehberi çekilemedi: {exc}\n")
+        return []
+    conn = KapConnector(http_post=net.post_json)
+    tum = []
+    for kod in kodlar:
+        eslesen = [r for r in rehber if kod in r["kodlar"].split(",")]
+        if not eslesen:
+            print(f"  UYARI — '{kod}' KAP rehberinde bulunamadı\n")
+            continue
+        r = eslesen[0]
+        firma = Firma(canonical_id=kod.lower(), unvan=r["unvan"],
+                      kap_oid=r["oid"], halka_acik=True)
+        sonuc = conn.cek({"oid": r["oid"], "bas_tarih": bas, "bit_tarih": bit})
+        if not sonuc.saglik.basarili:
+            print(f"  UYARI — {kod} bildirimleri çekilemedi: "
+                  f"{sonuc.saglik.hata}\n")
+            continue
+        skor = firma_isle(depo, conn, firma, sonuc.ham_kayitlar)
+        sinyaller = depo.firma_sinyalleri(firma.canonical_id)
+        eksik = " [KISMİ VERİ]" if sonuc.saglik.kismi_veri else ""
+        print(f"  {r['unvan']}: {sonuc.saglik.cekilen_kayit} bildirim{eksik}")
+        print(firma_raporu_metin(firma, skor, sinyaller))
+        print()
+        tum += sinyaller
+    return tum
+
+
 def _jcr_canli(depo: Depo) -> list:
     """JCR Eurasia'dan CANLI derecelendirme çek → firma dosyaları yazdır."""
     print("═══ JCR Eurasia canlı derecelendirme taraması ═══")
@@ -53,17 +89,27 @@ def main(argv=None) -> int:
     p.add_argument("--csv", help="sinyalleri bu CSV dosyasına yaz")
     p.add_argument("--jcr", action="store_true",
                    help="JCR Eurasia'dan CANLI derecelendirme de tara")
+    p.add_argument("--kap", metavar="KODLAR",
+                   help="BIST kodları (virgüllü) için KAP'tan CANLI tara, "
+                        "ör. --kap SASA,KONTR")
+    p.add_argument("--bas", default="2024-01-01", help="KAP başlangıç (YYYY-MM-DD)")
+    p.add_argument("--bit", default="2025-12-31", help="KAP bitiş (YYYY-MM-DD)")
     args = p.parse_args(argv)
 
     depo = Depo()
     tum_sinyaller = []
-    conn = KapConnector()
-    for firma, ham in demo_veri():
-        skor = firma_isle(depo, conn, firma, ham)
-        sinyaller = depo.firma_sinyalleri(firma.canonical_id)
-        print(firma_raporu_metin(firma, skor, sinyaller))
-        print()
-        tum_sinyaller += sinyaller
+
+    if args.kap:
+        kodlar = [k.strip().upper() for k in args.kap.split(",") if k.strip()]
+        tum_sinyaller += _kap_canli(depo, kodlar, args.bas, args.bit)
+    else:
+        conn = KapConnector()
+        for firma, ham in demo_veri():
+            skor = firma_isle(depo, conn, firma, ham)
+            sinyaller = depo.firma_sinyalleri(firma.canonical_id)
+            print(firma_raporu_metin(firma, skor, sinyaller))
+            print()
+            tum_sinyaller += sinyaller
 
     if args.jcr:
         tum_sinyaller += _jcr_canli(depo)

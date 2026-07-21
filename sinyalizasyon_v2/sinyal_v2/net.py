@@ -8,6 +8,7 @@ gelir) ve tüm kaynaklar aynı nazik davranışı paylaşır.
 """
 from __future__ import annotations
 
+import json
 import threading
 import time
 
@@ -26,15 +27,30 @@ _kilit = threading.Lock()
 _son = [0.0]
 
 
-def get(url: str, timeout: int = TIMEOUT) -> str:
-    """URL'yi hız sınırlamalı olarak çek → metin. Hata → istisna (connector
-    bunu SaglikDurumu.basarili=False'a çevirir; sessiz kayıp yok)."""
+def _hiz_sinirla() -> None:
     with _kilit:
         bekle = MIN_ARALIK - (time.time() - _son[0])
         if bekle > 0:
             time.sleep(bekle)
         _son[0] = time.time()
+
+
+def get(url: str, timeout: int = TIMEOUT) -> str:
+    """URL'yi hız sınırlamalı olarak çek → metin. Hata → istisna (connector
+    bunu SaglikDurumu.basarili=False'a çevirir; sessiz kayıp yok)."""
+    _hiz_sinirla()
     resp = _session.get(url, timeout=timeout)
+    resp.raise_for_status()
+    resp.encoding = "utf-8"
+    return resp.text
+
+
+def post_json(url: str, govde: dict, timeout: int = TIMEOUT) -> str:
+    """URL'ye JSON gövde POST et → yanıt metni (hız sınırlamalı)."""
+    _hiz_sinirla()
+    resp = _session.post(url, data=json.dumps(govde), timeout=timeout,
+                         headers={"Content-Type": "application/json",
+                                  "Accept": "application/json"})
     resp.raise_for_status()
     resp.encoding = "utf-8"
     return resp.text

@@ -111,46 +111,92 @@ def flight_dizisi_cikar(page: str, anchor: str = '\\"data\\":['):
     return None                          # dizi hiç kapanmadı: kesik yanıt
 
 
+BYCRITERIA_URL = f"{BASE}/tr/api/disclosure/members/byCriteria"
+
+
+def bycriteria_govde(oid: str, bas_tarih: str, bit_tarih: str) -> dict:
+    """KAP disclosure JSON REST endpoint istek gövdesi (tarih: YYYY-MM-DD)."""
+    return {
+        "fromDate": bas_tarih, "toDate": bit_tarih, "year": "", "prd": "",
+        "term": "", "ruleType": "", "bdkReview": "", "disclosureClass": "",
+        "index": "", "market": "", "isLate": "", "subjectList": [],
+        "mkkMemberOidList": [oid], "inactiveMkkMemberOidList": [],
+        "bdkMemberOidList": [], "mainSector": "", "sector": "", "subSector": "",
+        "memberType": "IGS", "fromSrc": "", "srcCategory": "", "discIndex": [],
+    }
+
+
 class KapConnector(Connector):
+    """KAP connector — disclosure'lar JSON REST (byCriteria) ile çekilir.
+
+    (Eski gömülü 'flight payload' mekanizması KAP'ta kalktı; `flight_dizisi_cikar`
+    geriye dönük/legacy olarak korunur.) Ağ dışarıdan `http_post` ile enjekte
+    edilir → connector test edilebilir kalır.
+    """
     kaynak_tipi = KaynakTipi.KAP
 
-    def __init__(self, http_get: Callable[[str], str] | None = None):
-        # http_get enjekte edilmezse cek() çalışmaz ama sessizce başarı taklidi
-        # yapmaz — açık başarısız sağlık döner (sessiz veri kaybı yasak).
-        self._http_get = http_get
+    def __init__(self, http_post: Callable[[str, dict], str] | None = None):
+        self._http_post = http_post
         self._son_saglik = SaglikDurumu(kaynak_tipi=self.kaynak_tipi,
                                         basarili=True)
 
-    def cek(self, sorgu: dict) -> CekimSonucu:
-        oid = sorgu.get("oid")
-        yil = sorgu.get("yil")
-        if self._http_get is None:
-            s = SaglikDurumu(
-                kaynak_tipi=self.kaynak_tipi, basarili=False,
-                hata="http_get enjekte edilmedi — canlı KAP mekanizması "
-                     "(flight payload vs JSON REST) doğrulanıp bağlanmalı")
-            self._son_saglik = s
-            return CekimSonucu(saglik=s)
-        url = (f"{BASE}/tr/bildirim-sorgu-sonuc?srcbar=Y&cmp=Y&cat=2"
-               f"&m={oid}&t=X&slf=ALL")
-        if yil:
-            url += f"&yr={yil}"
+    @staticmethod
+    def _yillik_pencereler(bas: str, bit: str) -> list[tuple[str, str]]:
+        """[bas, bit] aralığını yıllık pencerelere böl (KAP çok-yıllık sorguda
+        500 döner). Tarihler 'YYYY-MM-DD'."""
         try:
-            page = self._http_get(url)
-            arr = flight_dizisi_cikar(page)
-        except Exception as exc:                       # noqa: BLE001
+            b = datetime.strptime(bas, "%Y-%m-%d")
+            e = datetime.strptime(bit, "%Y-%m-%d")
+        except ValueError:
+            return [(bas, bit)]                  # ayrıştırılamazsa tek pencere
+        pencereler = []
+        for yil in range(b.year, e.year + 1):
+            p_bas = max(b, datetime(yil, 1, 1)).strftime("%Y-%m-%d")
+            p_bit = min(e, datetime(yil, 12, 31)).strftime("%Y-%m-%d")
+            pencereler.append((p_bas, p_bit))
+        return pencereler
+
+    def cek(self, sorgu: dict) -> CekimSonucu:
+        """sorgu: {oid, bas_tarih 'YYYY-MM-DD', bit_tarih 'YYYY-MM-DD'}.
+
+        Aralık yıllık pencerelere bölünüp birleştirilir; bir pencere hata verse
+        de diğerleri kullanılır (kısmi veri açıkça işaretlenir — sessiz kayıp yok).
+        """
+        if self._http_post is None:
             s = SaglikDurumu(kaynak_tipi=self.kaynak_tipi, basarili=False,
-                             hata=str(exc))
+                             hata="http_post enjekte edilmedi")
             self._son_saglik = s
             return CekimSonucu(saglik=s)
-        if arr is None:
+        oid = sorgu.get("oid", "")
+        pencereler = self._yillik_pencereler(sorgu.get("bas_tarih", ""),
+                                             sorgu.get("bit_tarih", ""))
+        gorulen: dict = {}
+        basari, hata = 0, 0
+        son_hata = None
+        for p_bas, p_bit in pencereler:
+            try:
+                arr = json.loads(self._http_post(
+                    BYCRITERIA_URL, bycriteria_govde(oid, p_bas, p_bit)))
+            except Exception as exc:                   # noqa: BLE001
+                hata += 1
+                son_hata = str(exc)
+                continue
+            if not isinstance(arr, list):
+                hata += 1
+                continue
+            basari += 1
+            for it in arr:
+                idx = it.get("disclosureIndex")
+                if idx is not None:
+                    gorulen[idx] = it
+        if basari == 0:
             s = SaglikDurumu(kaynak_tipi=self.kaynak_tipi, basarili=False,
-                             hata="veri bloğu bulunamadı (kısıtlama/bozuk yanıt)")
+                             hata=son_hata or "tüm pencereler başarısız")
             self._son_saglik = s
             return CekimSonucu(saglik=s)
-        kayitlar = [(it.get("disclosureBasic") or it) for it in arr]
+        kayitlar = list(gorulen.values())
         s = SaglikDurumu(kaynak_tipi=self.kaynak_tipi, basarili=True,
-                         cekilen_kayit=len(kayitlar))
+                         cekilen_kayit=len(kayitlar), kismi_veri=hata > 0)
         self._son_saglik = s
         return CekimSonucu(saglik=s, ham_kayitlar=kayitlar)
 

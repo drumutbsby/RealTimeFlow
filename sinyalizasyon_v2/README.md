@@ -20,8 +20,9 @@ SQLite depo çalışır durumda. Testler yeşil (44).
 yoksa Katman A tek başına (düşük güven); varsa fusion + yüksek güven.
 
 **Gerçek veri kaynakları (canlı doğrulandı):**
+- **KAP bildirimleri** — üye rehberi (1211 ihraççı) + disclosure JSON REST
+  (`byCriteria`). Gerçek BIST firmaları uçtan uca skorlanıyor (SASA, KONTR…).
 - **JCR Eurasia** derecelendirme — canlı jcrer.com.tr'den 10 gerçek kayıt.
-- **KAP üye rehberi** — canlı kap.org.tr'den 1211 gerçek ihraççı (SASA, THYAO…).
 
 **Erişilebilirlik notu (bu ortam):** kap.org.tr, jcrer.com.tr, ticaretsicil.gov.tr
 erişilebilir; **ilan.gov.tr ve resmigazete.gov.tr TLS/bağlantı düzeyinde engelli**
@@ -63,14 +64,18 @@ tests/                 # pytest — model, normalize, eşleştirme, depo, KAP ay
 ```bash
 pip install -r requirements.txt   # + pip install pytest
 python -m pytest -q                # sinyalizasyon_v2/ dizininden — 67 test
-python tarama.py                   # demo verisiyle uçtan uca risk dosyaları
-python tarama.py --jcr             # + JCR Eurasia'dan CANLI derecelendirme taraması
-python tarama.py --csv cikti.csv   # sinyalleri CSV'ye de yaz
+python tarama.py                          # demo verisiyle uçtan uca risk dosyaları
+python tarama.py --kap SASA,KONTR         # gerçek BIST firmaları için CANLI KAP taraması
+python tarama.py --kap SASA --bas 2023-01-01 --bit 2025-12-31
+python tarama.py --jcr                    # + JCR Eurasia'dan CANLI derecelendirme
+python tarama.py --csv cikti.csv          # sinyalleri CSV'ye de yaz
 ```
 
-`--jcr` gerçek jcrer.com.tr verisini çeker, kanonik firmalara çözer ve skorlar
-(uçtan uca canlı doğrulandı). KAP tarafı hâlâ demo veriyle çalışır (canlı KAP
-mekanizması doğrulanınca bağlanacak).
+**`--kap` CANLI çalışır:** KAP üye rehberini çeker, firmayı bulur, disclosure
+JSON REST endpoint'inden (`byCriteria`, yıllık pencerelere bölünür) gerçek
+bildirimleri çeker, sınıflandırır ve skorlar. Uçtan uca canlı doğrulandı — ör.
+SASA (117 bildirim/2025 → Not C: finansal yeniden yapılandırma, kredi notu,
+piyasa tedbirleri), KONTR (286 bildirim → Not C).
 
 ## Yol haritası (özet)
 
