@@ -29,6 +29,27 @@ from sinyal_v2.uyari import uyari_metni, uyari_uret
 IZLEME_LISTESI = ["SASA", "KONTR", "VESTL", "THYAO", "TUPRS", "YKBNK"]
 
 
+def _finansal_degerlendirme(yol: str) -> None:
+    """JSON finansal veriden bilimsel (Katman B) değerlendirme yazdır."""
+    import json
+    from sinyal_v2.finansal import tum_modeller, veriden_yukle
+    from sinyal_v2.rapor import finansal_rapor
+    with open(yol, encoding="utf-8") as fh:
+        d = json.load(fh)
+    cari = veriden_yukle(d.get("cari", {}))
+    if cari is None:
+        print("HATA — 'cari' altında 8 zorunlu finansal alan gerekli.")
+        return
+    onceki = veriden_yukle(d.get("onceki", {})) if d.get("onceki") else None
+    m = d.get("merton") or {}
+    sonuclar = tum_modeller(
+        fv=cari, onceki=onceki, gsyh_deflator=d.get("gsyh_deflator"),
+        merton_ozkaynak=m.get("piyasa_ozkaynak"),
+        merton_vol=m.get("ozkaynak_volatilite"), merton_borc=m.get("borc"))
+    print(f"═══ {d.get('unvan', 'Firma')} — finansal değerlendirme ═══")
+    print(finansal_rapor(sonuclar))
+
+
 def _kap_canli(depo: Depo, kodlar: list, bas: str, bit: str,
                derin: bool = False) -> list:
     """Belirtilen BIST kod(lar)ı için KAP'tan CANLI bildirim tara + skorla."""
@@ -127,7 +148,13 @@ def main(argv=None) -> int:
                         "okuyup yönü belirle (daha yavaş)")
     p.add_argument("--db", metavar="DOSYA",
                    help="kalıcı SQLite DB — önceki taramaya göre uyarı üretir")
+    p.add_argument("--finansal", metavar="JSON",
+                   help="JSON finansal veriden bilimsel (Katman B) değerlendirme")
     args = p.parse_args(argv)
+
+    if args.finansal:
+        _finansal_degerlendirme(args.finansal)
+        return 0
 
     depo = Depo(args.db) if args.db else Depo()
     tum_sinyaller = []

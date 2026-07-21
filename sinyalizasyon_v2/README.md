@@ -33,8 +33,14 @@ bir ağ/lisans ortamında bağlanmalı.
 **Bilimsel model suiti tam:** Altman Z''/Z', Piotroski F, Ohlson O, Beneish M
 (manipülasyon), Merton DD (naive, halka açık) + Katman A/B fusion.
 
-**Sırada:** Ticaret Sicil connector, kimlik eşleştirmeyi VKN ile zenginleştirme,
-canlı finansal tablo çekimi (Katman B'yi besleme), skor gürültü ayarı, UI + uyarı.
+**Katman B kullanımı:** Finansal veri şu an `--finansal firma.json` ile elle
+verilir (tüm modeller çalışır). **Otomatik çekim:** KAP finansal raporları
+sayıları XBRL-etiketli tablo olarak taşır (canlı doğrulandı) ama güvenilir çıkarım
+dönem/konsolidasyon seçimi + tablo eşleştirme gerektiren ayrı, dikkatli bir
+alt-projedir — yanlış çıkarım skorları bozacağından yarım uygulanmadı.
+
+**Sırada:** KAP XBRL finansal tablo çıkarımı (Katman B'yi otomatik besleme),
+skor gürültü ayarı (yüksek-hacimli firmalar), e-posta uyarı, web UI.
 
 ## Belgeler
 
@@ -73,6 +79,7 @@ python tarama.py --kap SASA,KONTR         # gerçek BIST firmaları için CANLI 
 python tarama.py --izleme                 # varsayılan izleme listesi → risk sıralaması tablosu
 python tarama.py --kap SASA --derin       # belirsiz derecelendirme bildirimlerinin detayını oku (yön tespiti)
 python tarama.py --izleme --db risk.db    # kalıcı DB: sonraki taramada değişimde UYARI üretir
+python tarama.py --finansal firma.json    # JSON finansal veriden bilimsel (Katman B) değerlendirme
 python tarama.py --kap SASA --bas 2023-01-01 --bit 2025-12-31
 python tarama.py --jcr                    # + JCR Eurasia'dan CANLI derecelendirme
 python tarama.py --csv cikti.csv          # sinyalleri CSV'ye de yaz

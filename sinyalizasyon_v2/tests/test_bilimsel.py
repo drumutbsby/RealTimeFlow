@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """Bilimsel değerlendirme cephesi testleri — tum_modeller + finansal_rapor."""
-from sinyal_v2.finansal import BeneishGirdi, FinansalVeri, tum_modeller
+from sinyal_v2.finansal import (BeneishGirdi, FinansalVeri, tum_modeller,
+                                veriden_yukle)
 from sinyal_v2.rapor import finansal_rapor
 
 FV = FinansalVeri(
@@ -31,6 +32,17 @@ def test_tum_modeller_merton_ve_beneish_eklenir():
 
 def test_tum_modeller_veri_yok_bos():
     assert tum_modeller() == []
+
+
+def test_veriden_yukle():
+    d = {"toplam_aktif": 1000, "donen_varlik": 500, "kisa_vadeli_borc": 300,
+         "toplam_borc": 600, "gecmis_yil_karlari": 100,
+         "faiz_vergi_oncesi_kar": 120, "satislar": 900, "net_kar": 80,
+         "ffo": 90}
+    fv = veriden_yukle(d)
+    assert fv is not None and fv.toplam_aktif == 1000 and fv.ffo == 90
+    # eksik zorunlu alan → None
+    assert veriden_yukle({"toplam_aktif": 1000}) is None
 
 
 def test_finansal_rapor_render():

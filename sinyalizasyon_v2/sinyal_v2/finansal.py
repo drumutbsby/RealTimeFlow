@@ -152,6 +152,22 @@ def piotroski_f(cari: FinansalVeri,
     return ModelSonucu("piotroski_f", float(puan), bolge, kriterler)
 
 
+def veriden_yukle(d: dict) -> "FinansalVeri | None":
+    """Sözlükten FinansalVeri kur (JSON girdi için). Zorunlu 8 alan yoksa None."""
+    zorunlu = ("toplam_aktif", "donen_varlik", "kisa_vadeli_borc",
+               "toplam_borc", "gecmis_yil_karlari", "faiz_vergi_oncesi_kar",
+               "satislar", "net_kar")
+    if not all(k in d for k in zorunlu):
+        return None
+    opsiyonel = ("faaliyet_nakit_akisi", "brut_kar", "uzun_vadeli_borc",
+                 "hisse_adedi", "ffo")
+    kwargs = {k: float(d[k]) for k in zorunlu}
+    for k in opsiyonel:
+        if d.get(k) is not None:
+            kwargs[k] = float(d[k])
+    return FinansalVeri(**kwargs)
+
+
 def tum_modeller(fv: "FinansalVeri | None" = None,
                  onceki: "FinansalVeri | None" = None,
                  gsyh_deflator: float | None = None,
