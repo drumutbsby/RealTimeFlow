@@ -1,0 +1,160 @@
+# -*- coding: utf-8 -*-
+"""Risk sınıflandırma kural kataloğu — V1'den taşınmış, kaynak-bağımsız.
+
+V1'in kanıtlanmış (24 vakalık altın regresyon setiyle korunan) kural seti buraya
+BİREBİR taşınmıştır. Kelimeler normalize edilmiş (küçük harf, TR sadeleştirilmiş)
+metinde aranır. Ağırlık 9-10 → KRİTİK, 7-8 → YÜKSEK, 5-6 → ORTA, ≤4 → DÜŞÜK.
+
+V2'de bu katalog artık yalnızca KAP'a değil, TÜM kaynaklara (ilan.gov.tr, Ticaret
+Sicil, Resmî Gazete…) uygulanır; kaynak-özgü kalıplar ileriki fazlarda eklenir.
+Yeni kalıp = hem birim testi hem altın vaka (CLAUDE.md / PRD §12.3).
+"""
+
+# kategori kimliği → (etiket, ağırlık 1-10)
+RISK_CATEGORIES = {
+    "iflas":            ("İflas / Tasfiye / Konkordato", 10),
+    "temerrut":         ("Temerrüt / Ödeme Performansı", 10),
+    "yakin_izleme":     ("Yakın İzleme / Kotasyon Riski", 9),
+    "ihale_yolsuzluk":  ("İhaleye Fesat / Yolsuzluk / Adli", 9),
+    "yapilandirma":     ("Finansal Yeniden Yapılandırma", 8),
+    "denetim":          ("Denetçi Görüşü / Süreklilik Şüphesi", 8),
+    "derecelendirme":   ("Kredi Notu Kötüleşmesi", 7),
+    "icra":             ("İcra / Haciz Takipleri", 7),
+    "regulator":        ("Regülatör Cezası / Yaptırım", 7),
+    "faaliyet":         ("Faaliyet / Üretim Riski", 5),
+    "yonetim":          ("Yönetim / Genel Kurul Riski", 5),
+    "varlik_satisi":    ("Varlık Satışı / Teminat-Rehin", 4),
+    "karlilik":         ("Kârlılık / Temettü Sinyali", 4),
+    "dava":             ("Önemli Dava / Tahkim", 4),
+    "piyasa_tedbir":    ("Piyasa Tedbirleri", 3),
+}
+
+RISK_RULES = [
+    ("iflas", ["iflas", "tasfiye karari", "tasfiyeye gir", "tasfiye sureci",
+               "konkordato", "borca batik"]),
+    ("temerrut", ["temerrut", "temerrud", "odeme guclugu", "odenmemesi",
+                  "odenememesi", "odeme yukumlulugunu yerine getirememe",
+                  "vadesinde odenmeme", "kupon odemesi yapilamama",
+                  "anapara odemesi yapilamama", "karsiliksiz cek", "protesto",
+                  "odemelerini durdur", "borc odemede gecikme",
+                  "odeyemez durum", "odenemez durum",
+                  "odemesi gerceklestirileme", "odeme yapilamam",
+                  "likidite sikisikligi", "nakit akisindaki bozulma",
+                  "finansmana erisimde guclu", "odeme planinin revize",
+                  "gerceklesmeyen itfa", "gerceklesmeyen kupon",
+                  "gerceklesmeyen getiri", "gerceklesmeyen odeme",
+                  "itfa odemesinin gecik", "kupon odemesinin gecik",
+                  "odemesinin ertelen", "erken itfa talebi",
+                  "gayrinakdi finansman sikisik"]),
+    ("yakin_izleme", ["yakin izleme", "islem sirasi kapatil",
+                      "islem sirasinin kapatil", "islem sirasi durdur",
+                      "kottan cikar", "borsa kotundan", "kotasyon sartlari",
+                      "piyasa oncesi islem platformu", "poip",
+                      "gozalti pazari", "isleme acilmamas",
+                      "isleme acilmayacak", "vade aylarinin acilmamas",
+                      "sozlesmelerinde islemlerin durdurul"]),
+    ("ihale_yolsuzluk", ["ihaleye fesat", "ihalelerden yasakla",
+                         "ihale yasagi", "kamu ihalelerinden", "yolsuzluk",
+                         "rusvet", "sahtecilik", "dolandiricilik",
+                         "kayyum atan", "kayyum karari", "tutuklan",
+                         "gozaltina alin", "el konul", "suc duyurusu"]),
+    ("yapilandirma", ["finansal yeniden yapilandirma",
+                      "borclarin yeniden yapilandir", "borc yapilandirma",
+                      "yeniden yapilandirma", "sermaye kaybi", "ttk 376",
+                      "376 nci madde", "376. madde", "teknik iflas",
+                      "borc erteleme", "finansal zorluk", "operasyonel zorluk",
+                      "finansal ve operasyonel", "kredi yapilandirma",
+                      "kredilerin yapilandiril", "yapilandirma protokol",
+                      "kredilerinin raporlanmasi", "covenant",
+                      "kredi sartlarinin ihlal", "sermayenin azaltilmasi",
+                      "zarar mahsubu", "zararlarin mahsubu"]),
+    ("denetim", ["olumsuz gorus", "gorus bildirmekten kacin", "sartli gorus",
+                 "isletmenin surekliligi",
+                 "surekliligine iliskin onemli belirsizlik", "going concern"]),
+    ("icra", ["icra takib", "icra takip", "icra dairesi", "icra mudurlugu",
+              "haciz", "ihtiyati haciz", "aleyhine takip", "kanuni takip",
+              "yasal takip baslat", "takip baslatil", "rehnin paraya cevril"]),
+    ("regulator", ["idari para cezasi", "vergi cezasi", "vergi incelemesi",
+                   "tarhiyat", "rekabet kurumu", "rekabet kurulu sorusturma",
+                   "bddk", "epdk", "masak", "spk tarafindan ceza",
+                   "kurul tarafindan verilen ceza", "para cezasi uygulan",
+                   "yaptirim", "sorusturma acil", "sorusturma baslat",
+                   "limit asimi", "sirketin uyaril", "uyari verilmesi"]),
+    ("faaliyet", ["uretim durdur", "uretime ara", "faaliyet durdur",
+                  "faaliyetlerin durdurulmasi", "fabrika kapat", "is durdurma",
+                  "grev", "lokavt", "yangin", "patlama", "is kazasi",
+                  "lisans iptal", "ruhsat iptal", "sube kapanis",
+                  "subelerin kapat", "magaza kapanis"]),
+    ("yonetim", ["istifa", "gorevinden ayril", "gorevden alin",
+                 "genel mudur degisik", "yonetim kurulu uyeliginden",
+                 "nisabinin saglanamamas", "nisap saglanamadigi",
+                 "genel kurul toplantisinin ertelen", "genel kurulun ertelen",
+                 "genel kurulu ertelen", "genel kurul tehiri",
+                 "genel kurulun tehir", "uyesi ayrilmasi",
+                 "uyesinin ayrilmasi", "yardimcisinin ayrilmasi",
+                 "genel mudurun ayrilmasi", "baskaninin ayrilmasi",
+                 "ust yonetici degisikli", "ust yonetim degisikli",
+                 "yonetim kurulu degisikli",
+                 "yonetim kurulu baskani ve uye degisikli",
+                 "ortaklar pay satisi", "hakim ortagin pay satis"]),
+    ("karlilik", ["kar dagitilmamasi", "kar payi dagitilmamasi",
+                  "kar dagitimi yapilmamasi", "temettu odenmemesi",
+                  "donem zarari nedeniyle", "zarar edilmesi nedeniyle"]),
+    ("varlik_satisi", ["duran varlik satis", "gayrimenkul satisi",
+                       "tasinmaz satisi", "istirak satisi",
+                       "istirak paylarinin satisi", "bagli ortaklik satisi",
+                       "bagli ortaklik paylarinin satisi",
+                       "varliklarin satisi", "maddi duran varlik satis",
+                       "arsa satisi", "fabrika satisi",
+                       "tahsili gecikmis alacak", "duran varlik satim",
+                       "varlik satimi", "gayrimenkul satimi",
+                       "tasinmaz satimi", "ipotek tesis", "rehin tesis",
+                       "ipotek verilmesi", "rehin verilmesi",
+                       "ipotek edilmesi"]),
+    ("dava", ["dava acil", "dava acti", "aleyhine dava",
+              "aleyhine acilan dava", "davanin kabul", "tahkim",
+              "arabuluculuk basvuru", "tazminat davasi"]),
+    ("piyasa_tedbir", ["brut takas", "volatilite bazli tedbir", "vbts",
+                       "aciga satis yasagi", "kredili islem yasagi",
+                       "tek fiyat yontemi", "islem yasagi", "tedbir karari",
+                       "tedbir uygulan", "yatirim araci bazinda tedbir",
+                       "pazar degisikligi", "olagan disi fiyat"]),
+]
+
+# Derecelendirme bildirimleri ayrı ele alınır (yön tespiti gerekir)
+RATING_TRIGGERS = ["derecelendirme", "kredi notu", "rating", "gorunum"]
+RATING_NEGATIVE = ["dusurul", "dusurdu", "indirdi", "indirilm", "indirim",
+                   "negatif", "asagi yonlu", "geri cek", "izlemeye al",
+                   "not cekil", "durdurul", "askiya al", "temerrut",
+                   "kotules", "d seviyesi", "default"]
+RATING_POSITIVE = ["yukselt", "teyit", "korundu", "duragan", "stabil",
+                   "pozitif", "yukari yonlu", "sozlesme imzalan",
+                   "sozlesmesi imzalan", "sozlesmesinin imzalan",
+                   "anlasma imzalan"]
+
+# Olumlu yön: KATEGORİYE ÖZGÜ iyileşme kalıpları (V1 gerekçesi korunur —
+# bağlamsız "sona erdi" kabul edilmez; iflas/yapılandırmada kısayol yoktur).
+IMPROVEMENT_HINTS_BY_CAT = {
+    "yakin_izleme": ["yakin izleme pazarindan cikar", "ana pazara gec",
+                     "ana pazara alin", "gozalti pazarindan cikar",
+                     "yeniden islem gorme"],
+    "piyasa_tedbir": ["tedbirin kaldiril", "yasagin kaldiril",
+                      "kaldirilmasina karar", "tedbir sona erdi"],
+    "regulator": ["sorusturmanin sonlandiril", "sorusturmasinin sonlandiril",
+                  "sorusturmanin kapatil", "sorusturmasinin kapatil",
+                  "sorusturmanin sona", "sorusturmasinin sona",
+                  "ceza verilmemesi", "sorusturma acilmamasina"],
+    "dava": ["davanin lehine sonuclan", "davanin reddi", "lehte sonuclan",
+             "davadan feragat"],
+    "icra": ["takipten vazgec", "takibin iptal", "haczin kaldiril",
+             "borcun odendi", "tamamen odendi"],
+    "temerrut": ["borcun odendi", "tamamen odendi",
+                 "odemenin gerceklestirildigi"],
+}
+
+# Gürültü: risk değeri taşımayan rutin bildirimler (V1'den).
+NOISE_PATTERNS = ["devre kesici", "endeks sirketlerinde degisiklik",
+                  "endeks degisikligi", "kurumsal yonetim uyum",
+                  "surdurulebilirlik raporu",
+                  "islem yasagi nedeniyle pay duyurusu",
+                  "planli bakim", "periyodik bakim"]

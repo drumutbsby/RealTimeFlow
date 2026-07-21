@@ -10,9 +10,10 @@ açıklanabilir** bir metodolojiyle değerlendiren erken uyarı platformu.
 
 ## Durum
 
-🚧 **Faz 1 — Çekirdek altyapı (sürüyor).** PRD + Faz 0 iskeleti tamam. Faz 1'de
-kimlik eşleştirme motoru (VKN/MERSİS kesin + bulanık unvan + doğrulama kuyruğu)
-ve SQLite depo katmanı eklendi. Tüm testler yeşil (`python -m pytest`).
+🚧 **Faz 2 — Sinyal motoru (sürüyor).** PRD + Faz 0/1 tamam. Faz 2'de V1'in
+kanıtlanmış kural seti (15 kategori) kaynak-bağımsız bir sınıflandırma motoruna
+taşındı; V1'in 24 vakalık altın regresyon setinin 23'ü uyarlandı (rapor gecikmesi
+connector-seviyesi olduğu için ayrı ele alınacak). Tüm testler yeşil (34).
 
 ## Belgeler
 
@@ -27,6 +28,8 @@ sinyal_v2/
   normalize.py         # norm(), unvan_anahtari(), VKN/MERSİS doğrulama + MERSİS→VKN
   eslestirme.py        # kimlik eşleştirme: VKN > MERSİS-VKN > bulanık unvan + eşik
   depo.py              # SQLite depo: firma / kaynak_kaydi / sinyal (kanıt zinciri)
+  kurallar.py          # risk kural kataloğu (V1'den taşındı): 15 kategori + kalıplar
+  motor.py             # siniflandir(): kaynak-bağımsız metin → SinyalSonucu
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu
     kap.py             # ilk kaynak: KAP (V1 flight-payload ayrıştırıcısı taşındı)
