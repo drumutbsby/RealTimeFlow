@@ -46,8 +46,13 @@ tests/                 # pytest — model, normalize, eşleştirme, depo, KAP ay
 
 ```bash
 pip install -r requirements.txt   # + pip install pytest
-python -m pytest -q                # sinyalizasyon_v2/ dizininden
+python -m pytest -q                # sinyalizasyon_v2/ dizininden — 48 test
+python tarama.py                   # demo verisiyle uçtan uca risk dosyaları
+python tarama.py --csv cikti.csv   # sinyalleri CSV'ye de yaz
 ```
+
+`tarama.py` şu an **sentetik demo** veriyle çalışır (canlı KAP/ilan.gov.tr
+connector'ları bağlanınca gerçek çekimle değişecektir).
 
 ## Yol haritası (özet)
 
