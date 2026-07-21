@@ -55,6 +55,17 @@ class Connector(ABC):
         """Tek bir ham kaydı kanonik `KaynakKaydi`'na çevir."""
         raise NotImplementedError
 
+    def yuzey_metin(self, ham: dict) -> str:
+        """Ham kayıttan sınıflandırılacak yüzey metni üret (başlık/özet/konu).
+        Alt sınıf kaynağa özgü alan adlarıyla ezebilir."""
+        return " | ".join(
+            str(ham[k]) for k in ("title", "summary", "subject", "ruleTypeTerm")
+            if ham.get(k))
+
+    def olay_tarihi(self, ham: dict) -> datetime:
+        """Ham kayıttan olay tarihini çıkar. Varsayılan: bilinmiyor (min)."""
+        return datetime.min
+
     def saglik(self) -> SaglikDurumu:
         """Son çekim sağlığı (izleme paneli için). Alt sınıf son durumu tutar."""
         return SaglikDurumu(kaynak_tipi=self.kaynak_tipi, basarili=True)

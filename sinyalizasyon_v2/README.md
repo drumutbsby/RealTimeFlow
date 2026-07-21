@@ -10,10 +10,14 @@ açıklanabilir** bir metodolojiyle değerlendiren erken uyarı platformu.
 
 ## Durum
 
-🚧 **Faz 3 — Skorlama (sürüyor).** PRD + Faz 0/1/2 tamam. Faz 3'te V1'in
-skorlama mantığı (ağırlık × güncellik × kategori-içi sönümleme → 0–100 + A–E
-notu) Katman A olarak taşındı; açıklanabilir katkı dökümü + güven rozeti
-üretilir. Finansal model (Katman B) veri bağlandığında eklenecek. Testler yeşil (42).
+🚧 **Offline analiz çekirdeği tamam (uçtan uca çalışıyor).** PRD + Faz 0/1/2/3 +
+orkestrasyon boru hattı hazır: `connector → motor → skor → depo` zinciri sentetik
+KAP kayıtlarıyla test edildi. Katman A skorlama, kimlik eşleştirme, kanıt zincirli
+SQLite depo çalışır durumda. Testler yeşil (44).
+
+**Sırada (kullanıcı yönlendirmesi faydalı):** canlı kaynak connector'ları
+(ilan.gov.tr, Ticaret Sicil, Resmî Gazete — WAF/503 riski), Katman B finansal
+skorlama (finansal veri bağlama), Streamlit UI + uyarı sistemi.
 
 ## Belgeler
 
@@ -31,6 +35,7 @@ sinyal_v2/
   kurallar.py          # risk kural kataloğu (V1'den taşındı): 15 kategori + kalıplar
   motor.py             # siniflandir(): kaynak-bağımsız metin → SinyalSonucu
   skor.py              # Katman A skorlama: 0–100 + A–E + açıklanabilir katkı dökümü
+  boru.py              # orkestrasyon: connector → motor → skor → depo (uçtan uca)
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu
     kap.py             # ilk kaynak: KAP (V1 flight-payload ayrıştırıcısı taşındı)

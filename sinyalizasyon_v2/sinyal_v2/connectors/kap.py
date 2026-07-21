@@ -121,5 +121,16 @@ class KapConnector(Connector):
             ham_veri=ham,
         )
 
+    def olay_tarihi(self, ham: dict) -> datetime:
+        """KAP publishDate ('%d.%m.%Y %H:%M:%S') → datetime; çözülemezse min."""
+        s = (ham.get("publishDate") or "").strip()
+        try:
+            return datetime.strptime(s, "%d.%m.%Y %H:%M:%S")
+        except ValueError:
+            try:
+                return datetime.strptime(s[:10], "%d.%m.%Y")
+            except ValueError:
+                return datetime.min
+
     def saglik(self) -> SaglikDurumu:
         return self._son_saglik
