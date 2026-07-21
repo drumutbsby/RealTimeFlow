@@ -43,7 +43,8 @@ sinyal_v2/
   motor.py             # siniflandir(): kaynak-bağımsız metin → SinyalSonucu
   skor.py              # Katman A skorlama: 0–100 + A–E + açıklanabilir katkı dökümü
   finansal.py          # Katman B: Altman Z''/Z', Piotroski F, Ohlson O (hepsi doğrulandı)
-  boru.py              # orkestrasyon: connector → motor → skor → depo (uçtan uca)
+  boru.py              # orkestrasyon: firma_isle + kaynak_tarama (kaynak-güdümlü keşif)
+  net.py               # kaynağa saygılı HTTP çekim (hız sınırlamalı)
   connectors/
     base.py            # Connector sözleşmesi (cek/ayristir/saglik) + SaglikDurumu
     kap.py             # KAP (V1 flight-payload ayrıştırıcısı taşındı)
@@ -55,13 +56,15 @@ tests/                 # pytest — model, normalize, eşleştirme, depo, KAP ay
 
 ```bash
 pip install -r requirements.txt   # + pip install pytest
-python -m pytest -q                # sinyalizasyon_v2/ dizininden — 48 test
+python -m pytest -q                # sinyalizasyon_v2/ dizininden — 67 test
 python tarama.py                   # demo verisiyle uçtan uca risk dosyaları
+python tarama.py --jcr             # + JCR Eurasia'dan CANLI derecelendirme taraması
 python tarama.py --csv cikti.csv   # sinyalleri CSV'ye de yaz
 ```
 
-`tarama.py` şu an **sentetik demo** veriyle çalışır (canlı KAP/ilan.gov.tr
-connector'ları bağlanınca gerçek çekimle değişecektir).
+`--jcr` gerçek jcrer.com.tr verisini çeker, kanonik firmalara çözer ve skorlar
+(uçtan uca canlı doğrulandı). KAP tarafı hâlâ demo veriyle çalışır (canlı KAP
+mekanizması doğrulanınca bağlanacak).
 
 ## Yol haritası (özet)
 

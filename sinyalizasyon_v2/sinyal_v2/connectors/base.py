@@ -66,6 +66,12 @@ class Connector(ABC):
         """Ham kayıttan olay tarihini çıkar. Varsayılan: bilinmiyor (min)."""
         return datetime.min
 
+    def firma_kimligi(self, ham: dict) -> dict:
+        """Ham kayıttan firma kimlik ipuçları (kaynak-güdümlü keşif için).
+        Varsayılan: unvan/vkn/mersis alanları. Alt sınıf ezebilir."""
+        return {"unvan": ham.get("unvan") or "", "vkn": ham.get("vkn"),
+                "mersis": ham.get("mersis")}
+
     def saglik(self) -> SaglikDurumu:
         """Son çekim sağlığı (izleme paneli için). Alt sınıf son durumu tutar."""
         return SaglikDurumu(kaynak_tipi=self.kaynak_tipi, basarili=True)
