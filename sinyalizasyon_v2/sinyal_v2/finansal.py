@@ -152,6 +152,39 @@ def piotroski_f(cari: FinansalVeri,
     return ModelSonucu("piotroski_f", float(puan), bolge, kriterler)
 
 
+def _normal_cdf(x: float) -> float:
+    """Standart normal birikimli dağılım N(x) — math.erf ile (bağımlılıksız)."""
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+
+def merton_dd(piyasa_ozkaynak: float, ozkaynak_volatilite: float, borc: float,
+              risksiz_faiz: float = 0.10, vade_yil: float = 1.0
+              ) -> ModelSonucu | None:
+    """Naive Merton Distance-to-Default (Bharath & Shumway, 2008).
+
+    Piyasa verisi (piyasa özkaynak değeri + özkaynak volatilitesi) gerektirir →
+    YALNIZCA halka açık firmalara uygulanır. İki-denklemli sistem yerine naive
+    yaklaşım kullanılır (V=E+D, σV ağırlıklı ortalama); erken uyarı için tam
+    çözüme yakın ayırıcılık verir.
+
+    DD = [ln(V/D) + (r − ½σV²)·T] / (σV·√T);  temerrüt olasılığı = N(−DD).
+    """
+    e, se, d = piyasa_ozkaynak, ozkaynak_volatilite, borc
+    if e <= 0 or se <= 0 or d <= 0 or vade_yil <= 0:
+        return None
+    v = e + d
+    sd = 0.05 + 0.25 * se                    # naive borç volatilitesi
+    sv = (e / v) * se + (d / v) * sd         # naive varlık volatilitesi
+    dd = ((math.log(v / d) + (risksiz_faiz - 0.5 * sv * sv) * vade_yil)
+          / (sv * math.sqrt(vade_yil)))
+    pd = _normal_cdf(-dd)
+    bolge = ("sıkıntı" if pd > 0.10 else ("gri" if pd > 0.01 else "güvenli"))
+    return ModelSonucu(
+        "merton_dd_naive", round(dd, 3), bolge,
+        {"temerrut_olasiligi": round(pd, 5), "sigma_V": round(sv, 4),
+         "V": round(v, 2), "yorum": "yalnızca halka açık (piyasa verili) firma"})
+
+
 @dataclass
 class BeneishGirdi:
     """Beneish M-Score için tek döneme ait kalemler (iki dönem gerekir)."""

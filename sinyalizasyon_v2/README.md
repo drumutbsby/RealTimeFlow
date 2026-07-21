@@ -29,9 +29,11 @@ erişilebilir; **ilan.gov.tr ve resmigazete.gov.tr TLS/bağlantı düzeyinde eng
 (proxy doğrulanabilir sertifika sunmuyor / bağlantı reset). Bu kaynaklar farklı
 bir ağ ortamında bağlanmalı.
 
-**Sırada:** KAP disclosure JSON REST endpoint (flight payload kalktı), Ticaret
-Sicil connector, kimlik eşleştirmeyi VKN ile zenginleştirme, Beneish M,
-Streamlit UI + uyarı sistemi.
+**Bilimsel model suiti tam:** Altman Z''/Z', Piotroski F, Ohlson O, Beneish M
+(manipülasyon), Merton DD (naive, halka açık) + Katman A/B fusion.
+
+**Sırada:** Ticaret Sicil connector, kimlik eşleştirmeyi VKN ile zenginleştirme,
+canlı finansal tablo çekimi (Katman B'yi besleme), skor gürültü ayarı, UI + uyarı.
 
 ## Belgeler
 
@@ -49,7 +51,7 @@ sinyal_v2/
   kurallar.py          # risk kural kataloğu (V1'den taşındı): 15 kategori + kalıplar
   motor.py             # siniflandir(): kaynak-bağımsız metin → SinyalSonucu
   skor.py              # Katman A skorlama: 0–100 + A–E + açıklanabilir katkı dökümü
-  finansal.py          # Katman B: Altman Z''/Z', Piotroski F, Ohlson O, Beneish M
+  finansal.py          # Katman B: Altman Z''/Z', Piotroski F, Ohlson O, Beneish M, Merton DD
   boru.py              # orkestrasyon: firma_isle + kaynak_tarama (kaynak-güdümlü keşif)
   net.py               # kaynağa saygılı HTTP çekim (hız sınırlamalı)
   connectors/

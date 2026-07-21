@@ -9,7 +9,8 @@ import dataclasses
 import pytest
 
 from sinyal_v2.finansal import (BeneishGirdi, FinansalVeri, altman_z2,
-                                altman_z_ozel, beneish_m, ohlson_o, piotroski_f)
+                                altman_z_ozel, beneish_m, merton_dd, ohlson_o,
+                                piotroski_f)
 
 # Ajan tarafından doğrulanan çalışılmış örnek girdileri
 ORNEK = FinansalVeri(
@@ -124,6 +125,28 @@ def test_beneish_yuksek_tahakkuk_supheli():
 def test_beneish_gecersiz_girdi_none():
     kotu = dataclasses.replace(_BENEISH_NOTR, satislar=0)
     assert beneish_m(kotu, _BENEISH_NOTR) is None
+
+
+def test_merton_saglam_firma_guvenli():
+    # E=1000, σE=0.4, D=500, r=0.10, T=1 → DD≈3.627, PD çok küçük
+    r = merton_dd(1000, 0.4, 500, 0.10, 1.0)
+    assert r is not None
+    assert r.skor == pytest.approx(3.627, abs=0.01)
+    assert r.bolge == "güvenli"
+    assert r.ayrinti["temerrut_olasiligi"] < 0.01
+
+
+def test_merton_riskli_firma_sikinti():
+    # düşük özkaynak + yüksek volatilite + yüksek borç → düşük DD, yüksek PD
+    r = merton_dd(100, 0.8, 900, 0.10, 1.0)
+    assert r is not None
+    assert r.bolge == "sıkıntı"
+    assert r.ayrinti["temerrut_olasiligi"] > 0.10
+
+
+def test_merton_gecersiz_girdi_none():
+    assert merton_dd(0, 0.4, 500) is None       # piyasa özkaynağı yok
+    assert merton_dd(1000, 0, 500) is None       # volatilite yok
 
 
 def test_piotroski_eksik_veri_none():
