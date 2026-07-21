@@ -4,8 +4,12 @@
 Sayısal altın değerler bağımsız araştırma ajanı tarafından elle hesaplanıp
 teyit edildi (Altman Z''=3.144 güvenli, EMS=6.394; Z'=1.779 gri).
 """
-from sinyal_v2.finansal import (FinansalVeri, altman_z2, altman_z_ozel,
-                                ohlson_o, piotroski_f)
+import dataclasses
+
+import pytest
+
+from sinyal_v2.finansal import (BeneishGirdi, FinansalVeri, altman_z2,
+                                altman_z_ozel, beneish_m, ohlson_o, piotroski_f)
 
 # Ajan tarafından doğrulanan çalışılmış örnek girdileri
 ORNEK = FinansalVeri(
@@ -89,6 +93,37 @@ def test_ohlson_eksik_ffo_none():
         toplam_borc=600, gecmis_yil_karlari=100, faiz_vergi_oncesi_kar=80,
         satislar=900, net_kar=50)                # ffo/cfo yok
     assert ohlson_o(fv, fv, gsyh_deflator=100) is None
+
+
+# Nötr Beneish girdisi (iki yıl aynı, NI=CFO): tüm endeksler 1, TATA=0
+_BENEISH_NOTR = BeneishGirdi(
+    satislar=1000, satis_maliyeti=600, ticari_alacaklar=200, donen_varlik=500,
+    maddi_duran_varlik=300, toplam_aktif=1000, amortisman=50,
+    faaliyet_giderleri=100, toplam_borc=400, net_kar=100,
+    faaliyet_nakit_akisi=100)
+
+
+def test_beneish_notr_temiz():
+    # tüm endeksler 1, TATA=0 → M = -4.84 + (katsayı toplamı) = -2.48
+    r = beneish_m(_BENEISH_NOTR, _BENEISH_NOTR)
+    assert r is not None
+    assert r.skor == pytest.approx(-2.48, abs=0.01)
+    assert r.bolge == "temiz"                  # M < -1.78
+
+
+def test_beneish_yuksek_tahakkuk_supheli():
+    # net kâr nakit akışını çok aşarsa (TATA=0.2) → M > -1.78
+    cari = dataclasses.replace(_BENEISH_NOTR, net_kar=300)  # NI-CFO=200
+    r = beneish_m(cari, _BENEISH_NOTR)
+    assert r is not None
+    assert r.ayrinti["TATA"] == pytest.approx(0.2, abs=0.001)
+    assert r.skor == pytest.approx(-1.544, abs=0.01)
+    assert r.bolge == "şüpheli"                # M > -1.78
+
+
+def test_beneish_gecersiz_girdi_none():
+    kotu = dataclasses.replace(_BENEISH_NOTR, satislar=0)
+    assert beneish_m(kotu, _BENEISH_NOTR) is None
 
 
 def test_piotroski_eksik_veri_none():

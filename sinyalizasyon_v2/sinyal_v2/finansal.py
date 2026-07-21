@@ -152,6 +152,70 @@ def piotroski_f(cari: FinansalVeri,
     return ModelSonucu("piotroski_f", float(puan), bolge, kriterler)
 
 
+@dataclass
+class BeneishGirdi:
+    """Beneish M-Score için tek döneme ait kalemler (iki dönem gerekir)."""
+    satislar: float                     # net satışlar
+    satis_maliyeti: float               # SMM (COGS)
+    ticari_alacaklar: float             # net ticari alacaklar
+    donen_varlik: float                 # dönen varlık
+    maddi_duran_varlik: float           # net maddi duran varlık (PP&E)
+    toplam_aktif: float
+    amortisman: float                   # dönem amortismanı
+    faaliyet_giderleri: float           # pazarlama+genel yönetim (SG&A)
+    toplam_borc: float
+    net_kar: float                      # sürdürülen faaliyet kârı
+    faaliyet_nakit_akisi: float         # CFO
+
+
+def beneish_m(cari: BeneishGirdi, onceki: BeneishGirdi) -> ModelSonucu | None:
+    """Beneish M-Score — kazanç/tablo MANİPÜLASYONU kırmızı-bayrağı (iflas DEĞİL).
+
+    M = -4.84 + 0.920·DSRI + 0.528·GMI + 0.404·AQI + 0.892·SGI + 0.115·DEPI
+        - 0.172·SGAI + 4.679·TATA - 0.327·LVGI
+    Eşik: M > -1.78 → manipülasyon olasılığı YÜKSEK ("şüpheli").
+
+    ⚠️ Bu skor iflas/temerrüt tahmini DEĞİLDİR; ayrı bir kazanç-kalitesi
+    sinyalidir ve iflas skoruna doğrudan ağırlık olarak eklenmez.
+    """
+    def guvenli_bol(a, b):
+        return a / b if b else None
+    gm_t = guvenli_bol(cari.satislar - cari.satis_maliyeti, cari.satislar)
+    gm_o = guvenli_bol(onceki.satislar - onceki.satis_maliyeti, onceki.satislar)
+    aqi_pay = 1 - guvenli_bol(cari.donen_varlik + cari.maddi_duran_varlik,
+                              cari.toplam_aktif) if cari.toplam_aktif else None
+    aqi_payda = (1 - guvenli_bol(onceki.donen_varlik + onceki.maddi_duran_varlik,
+                                 onceki.toplam_aktif)
+                 if onceki.toplam_aktif else None)
+    dep_t = guvenli_bol(cari.amortisman,
+                        cari.amortisman + cari.maddi_duran_varlik)
+    dep_o = guvenli_bol(onceki.amortisman,
+                        onceki.amortisman + onceki.maddi_duran_varlik)
+    try:
+        dsri = ((cari.ticari_alacaklar / cari.satislar) /
+                (onceki.ticari_alacaklar / onceki.satislar))
+        gmi = gm_o / gm_t
+        aqi = aqi_pay / aqi_payda
+        sgi = cari.satislar / onceki.satislar
+        depi = dep_o / dep_t
+        sgai = ((cari.faaliyet_giderleri / cari.satislar) /
+                (onceki.faaliyet_giderleri / onceki.satislar))
+        lvgi = ((cari.toplam_borc / cari.toplam_aktif) /
+                (onceki.toplam_borc / onceki.toplam_aktif))
+        tata = (cari.net_kar - cari.faaliyet_nakit_akisi) / cari.toplam_aktif
+    except (TypeError, ZeroDivisionError):
+        return None
+    m = (-4.84 + 0.920 * dsri + 0.528 * gmi + 0.404 * aqi + 0.892 * sgi
+         + 0.115 * depi - 0.172 * sgai + 4.679 * tata - 0.327 * lvgi)
+    bolge = "şüpheli" if m > -1.78 else "temiz"
+    return ModelSonucu(
+        "beneish_m", round(m, 3), bolge,
+        {"DSRI": round(dsri, 3), "GMI": round(gmi, 3), "AQI": round(aqi, 3),
+         "SGI": round(sgi, 3), "DEPI": round(depi, 3), "SGAI": round(sgai, 3),
+         "TATA": round(tata, 3), "LVGI": round(lvgi, 3),
+         "yorum": "manipülasyon kırmızı-bayrağı (iflas değil)"})
+
+
 def ohlson_o(cari: FinansalVeri, onceki: FinansalVeri,
              gsyh_deflator: float) -> ModelSonucu | None:
     """Ohlson O-Score (1980) — lojistik iflas olasılığı.

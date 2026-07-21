@@ -49,7 +49,7 @@ sinyal_v2/
   kurallar.py          # risk kural kataloğu (V1'den taşındı): 15 kategori + kalıplar
   motor.py             # siniflandir(): kaynak-bağımsız metin → SinyalSonucu
   skor.py              # Katman A skorlama: 0–100 + A–E + açıklanabilir katkı dökümü
-  finansal.py          # Katman B: Altman Z''/Z', Piotroski F, Ohlson O (hepsi doğrulandı)
+  finansal.py          # Katman B: Altman Z''/Z', Piotroski F, Ohlson O, Beneish M
   boru.py              # orkestrasyon: firma_isle + kaynak_tarama (kaynak-güdümlü keşif)
   net.py               # kaynağa saygılı HTTP çekim (hız sınırlamalı)
   connectors/
